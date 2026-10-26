@@ -2,6 +2,7 @@
   "name": "aether-flow-monorepo",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "description": "Autonomous Multi-Agent Microkernel & Real-Time Cognitive Canvas with On-the-Fly Tool Synthesis",
   "author": "iRuSu67",
   "license": "Apache-2.0",
@@ -18,7 +19,8 @@
     "lint": "npm run lint --workspaces --if-present",
     "start:canvas": "npm --workspace=@aether-flow/web run dev",
     "cli": "node packages/cli/dist/bin.js",
-    "demo": "node packages/core/dist/examples/quickstart.js"
+    "demo": "node packages/core/dist/examples/quickstart.js",
+    "benchmark": "node benchmarks/run_benchmarks.js"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

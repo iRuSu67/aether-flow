@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { AetherKernel } from '../index.js';
 import { Sandbox } from '../tools/Sandbox.js';
 import { ToolRegistry } from '../tools/ToolRegistry.js';
+import { VectorMemory } from '../memory/VectorMemory.js';
+import { KnowledgeGraph } from '../memory/KnowledgeGraph.js';
 
 test('Sandbox executes JS code securely and captures logs', async () => {
   const sandbox = new Sandbox(2000);
@@ -21,9 +23,11 @@ test('Sandbox executes JS code securely and captures logs', async () => {
   assert.equal(result.logs.length, 1);
 });
 
-test('ToolRegistry executes pre-registered tools', async () => {
+test('ToolRegistry executes pre-registered tools and web tools', async () => {
   const registry = new ToolRegistry();
   assert.equal(registry.has('text_analyzer'), true);
+  assert.equal(registry.has('web_search'), true);
+  assert.equal(registry.has('web_scrape'), true);
 
   const res = (await registry.execute('text_analyzer', {
     text: 'AetherFlow autonomous multi agent microkernel',
@@ -33,12 +37,42 @@ test('ToolRegistry executes pre-registered tools', async () => {
   assert.ok(res.charCount > 20);
 });
 
-test('AetherKernel end-to-end goal execution with mock simulation', async () => {
+test('VectorMemory embeds, inserts, and retrieves nearest neighbors', () => {
+  const memory = new VectorMemory(64);
+  memory.insert('doc1', 'Quantum computing entanglement state algorithm', { category: 'physics' });
+  memory.insert('doc2', 'High-frequency algorithmic equity portfolio management', { category: 'finance' });
+  memory.insert('doc3', 'Superposition principles in qubit architectures', { category: 'physics' });
+
+  const results = memory.search('quantum qubit entanglement', 2);
+  assert.ok(results.length > 0);
+  assert.equal(results[0].record.metadata.category, 'physics');
+});
+
+test('KnowledgeGraph connects entities and computes BFS shortest paths', () => {
+  const graph = new KnowledgeGraph();
+  graph.addNode('AgentArchitect', 'agent');
+  graph.addNode('ConsensusDialectic', 'concept');
+  graph.addNode('ExecutionSandbox', 'runtime');
+
+  graph.addEdge('AgentArchitect', 'ConsensusDialectic', 'participatesIn');
+  graph.addEdge('ConsensusDialectic', 'ExecutionSandbox', 'authorizes');
+
+  const path = graph.findPath('AgentArchitect', 'ExecutionSandbox');
+  assert.deepEqual(path, ['AgentArchitect', 'ConsensusDialectic', 'ExecutionSandbox']);
+});
+
+test('AetherKernel end-to-end goal execution with speculative swarm', async () => {
   const kernel = new AetherKernel({
     provider: 'mock',
     enableJitTools: true,
   });
 
+  // Speculative execution
+  const spec = await kernel.executeSpeculative('Deconstruct zero-knowledge rollup proofs', 3);
+  assert.ok(spec.allBranches.length === 3);
+  assert.ok(spec.winningBranch.criticScore >= 80);
+
+  // End-to-end goal
   const res = await kernel.executeGoal('Evaluate portfolio risk and calculate standard deviation', {
     portfolio: ['AAPL', 'GOOGL', 'NVDA'],
   });

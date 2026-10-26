@@ -1,7 +1,9 @@
 import { ToolDefinition } from '../types.js';
+import { WebSearchEngine } from './search/WebSearchEngine.js';
 
 export class ToolRegistry {
   private tools: Map<string, ToolDefinition> = new Map();
+  private searchEngine: WebSearchEngine = new WebSearchEngine();
 
   constructor() {
     this.registerStandardTools();
@@ -113,6 +115,30 @@ export class ToolRegistry {
         } catch (err) {
           return { error: String(err), status: 500 };
         }
+      }
+    });
+
+    // 4. Live Autonomous Web Search
+    this.register({
+      name: 'web_search',
+      description: 'Searches the live public web for real-time information, research papers, and technical data.',
+      parameters: [
+        { name: 'query', type: 'string', description: 'Search query string', required: true }
+      ],
+      handler: async (args) => {
+        return await this.searchEngine.search(String(args.query || ''));
+      }
+    });
+
+    // 5. Web Scraper & Article Extractor
+    this.register({
+      name: 'web_scrape',
+      description: 'Extracts clean, readable article content from a specified URL.',
+      parameters: [
+        { name: 'url', type: 'string', description: 'Target URL to scrape', required: true }
+      ],
+      handler: async (args) => {
+        return await this.searchEngine.extractPageText(String(args.url || ''));
       }
     });
   }

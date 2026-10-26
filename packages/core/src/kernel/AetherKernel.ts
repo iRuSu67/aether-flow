@@ -3,12 +3,17 @@ import { CriticAgent } from '../agents/CriticAgent.js';
 import { ExecutorAgent } from '../agents/ExecutorAgent.js';
 import { SynthesizerAgent } from '../agents/SynthesizerAgent.js';
 import { HegelianEngine } from '../consensus/HegelianEngine.js';
+import { KnowledgeGraph } from '../memory/KnowledgeGraph.js';
+import { VectorMemory } from '../memory/VectorMemory.js';
+import { MCPHub } from '../mcp/MCPHub.js';
 import { GeminiProvider } from '../providers/GeminiProvider.js';
 import { MockProvider } from '../providers/MockProvider.js';
 import { ModelProvider } from '../providers/ModelProvider.js';
 import { OpenAIProvider } from '../providers/OpenAIProvider.js';
+import { SpeculativeEngine, SpeculativeResult } from '../swarm/SpeculativeEngine.js';
 import { TelemetryServer } from '../telemetry/WebSocketServer.js';
 import { Sandbox } from '../tools/Sandbox.js';
+import { WebSearchEngine } from '../tools/search/WebSearchEngine.js';
 import { ToolForge } from '../tools/ToolForge.js';
 import { ToolRegistry } from '../tools/ToolRegistry.js';
 import {
@@ -28,6 +33,7 @@ export interface KernelExecutionResult {
   synthesizedTools: string[];
   executionTimeMs: number;
   traceEventsCount: number;
+  speculativeBranches?: number;
 }
 
 /**
@@ -41,6 +47,13 @@ export class AetherKernel {
   public sandbox: Sandbox;
   public forge: ToolForge;
   public hegelian: HegelianEngine;
+
+  // Next-Gen Neural Memory, MCP & Swarm
+  public memory: VectorMemory;
+  public graph: KnowledgeGraph;
+  public mcp: MCPHub;
+  public web: WebSearchEngine;
+  public speculative: SpeculativeEngine;
 
   // Swarm Agents
   public architect: ArchitectAgent;
@@ -72,21 +85,86 @@ export class AetherKernel {
       this.provider = new MockProvider();
     }
 
-    // 3. Initialize Execution Tooling & Sandbox
+    // 3. Initialize Memory, Knowledge Graph, MCP Hub & Web
+    this.memory = new VectorMemory(64);
+    this.graph = new KnowledgeGraph();
+    this.web = new WebSearchEngine();
     this.registry = new ToolRegistry();
+    this.mcp = new MCPHub(this.registry);
+
+    // 4. Initialize Execution Tooling & Sandbox
     this.sandbox = new Sandbox(this.config.sandboxTimeoutMs);
     this.forge = new ToolForge(this.provider, this.registry, this.sandbox, this.bus);
 
-    // 4. Initialize Dialectic Consensus
+    // 5. Initialize Dialectic Consensus & Speculative Swarms
     this.hegelian = new HegelianEngine(this.provider, this.bus, this.config.maxDialecticRounds);
+    this.speculative = new SpeculativeEngine(this.provider, this.bus);
 
-    // 5. Initialize Agents
+    // 6. Initialize Agents
     this.architect = new ArchitectAgent(this.provider, this.bus);
     this.critic = new CriticAgent(this.provider, this.bus);
     this.synthesizer = new SynthesizerAgent(this.provider, this.bus);
     this.executor = new ExecutorAgent(this.provider, this.bus, this.registry);
 
+    // Register Memory tools into ToolRegistry
+    this.registerMemoryTools();
+
     this.bus.emit('kernel:init', { provider: this.provider.name, config: this.config }, 'AetherKernel', 'info');
+  }
+
+  /**
+   * Run speculative execution exploring multiple parallel thought branches
+   */
+  async executeSpeculative(goal: string, branchCount = 3): Promise<SpeculativeResult> {
+    return await this.speculative.execute(goal, branchCount);
+  }
+
+  private registerMemoryTools(): void {
+    this.registry.register({
+      name: 'memory_store',
+      description: 'Stores semantic data into neural vector memory for future recall.',
+      parameters: [
+        { name: 'key', type: 'string', description: 'Memory key', required: true },
+        { name: 'content', type: 'string', description: 'Content to vectorize', required: true },
+      ],
+      handler: (args) => {
+        const key = String(args.key);
+        const content = String(args.content);
+        const record = this.memory.insert(key, content, { timestamp: Date.now() });
+        return { stored: true, id: record.id };
+      },
+    });
+
+    this.registry.register({
+      name: 'memory_query',
+      description: 'Queries neural vector memory using semantic cosine similarity.',
+      parameters: [
+        { name: 'query', type: 'string', description: 'Query string', required: true },
+        { name: 'topK', type: 'number', description: 'Number of results to return' },
+      ],
+      handler: (args) => {
+        const q = String(args.query);
+        const topK = Number(args.topK) || 3;
+        const matches = this.memory.search(q, topK);
+        return {
+          matches: matches.map((m) => ({ id: m.record.id, text: m.record.text, score: Number(m.score.toFixed(3)) })),
+        };
+      },
+    });
+
+    this.registry.register({
+      name: 'graph_link',
+      description: 'Links two concepts in the knowledge graph with a typed relation.',
+      parameters: [
+        { name: 'source', type: 'string', description: 'Source entity', required: true },
+        { name: 'target', type: 'string', description: 'Target entity', required: true },
+        { name: 'relation', type: 'string', description: 'Relationship name', required: true },
+      ],
+      handler: (args) => {
+        const edge = this.graph.addEdge(String(args.source), String(args.target), String(args.relation));
+        return { linked: true, edgeId: edge.id };
+      },
+    });
   }
 
   /**

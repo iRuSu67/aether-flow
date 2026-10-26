@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AetherFlow — Visual Cognitive Canvas</title>
+  <title>AetherFlow Studio — Autonomous Multi-Agent Microkernel & Cognitive Studio</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <script>
     tailwind.config = {
       theme: {
@@ -16,7 +16,7 @@
           },
           colors: {
             brand: {
-              50: '#f0fdfa',
+              400: '#2dd4bf',
               500: '#14b8a6',
               600: '#0d9488',
               900: '#134e4a',
@@ -27,144 +27,146 @@
     }
   </script>
   <style>
-    body { background-color: #0b0f19; color: #e2e8f0; }
-    .glass { background: rgba(17, 24, 39, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
-    .node-pulse { animation: pulseGlow 2s infinite ease-in-out; }
-    @keyframes pulseGlow {
-      0%, 100% { box-shadow: 0 0 15px rgba(20, 184, 166, 0.3); }
-      50% { box-shadow: 0 0 25px rgba(20, 184, 166, 0.7); }
-    }
+    body { background-color: #080c14; color: #e2e8f0; }
+    .glass { background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(14px); border: 1px solid rgba(255, 255, 255, 0.08); }
+    .active-tab { border-bottom: 2px solid #14b8a6; color: #2dd4bf; }
+    .glow-dot { box-shadow: 0 0 10px #14b8a6; }
+    svg line { stroke-dasharray: 4; animation: dash 20s linear infinite; }
+    @keyframes dash { to { stroke-dashoffset: -1000; } }
   </style>
 </head>
 <body class="min-h-screen flex flex-col font-sans antialiased select-none">
 
-  <!-- Header -->
-  <header class="glass sticky top-0 z-50 px-6 py-4 flex items-center justify-between border-b border-gray-800">
-    <div class="flex items-center space-x-3">
-      <div class="h-8 w-8 rounded-lg bg-gradient-to-tr from-teal-500 to-indigo-600 flex items-center justify-center font-bold text-white shadow-lg shadow-teal-500/20">
+  <!-- Top App Navigation -->
+  <header class="glass sticky top-0 z-50 px-6 py-3.5 flex items-center justify-between border-b border-gray-800/80">
+    <div class="flex items-center space-x-4">
+      <div class="h-9 w-9 rounded-xl bg-gradient-to-tr from-teal-500 via-cyan-500 to-indigo-600 flex items-center justify-center font-bold text-white shadow-lg shadow-teal-500/25">
         AE
       </div>
       <div>
-        <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
-          AetherFlow
-          <span class="text-xs px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-400 border border-teal-500/20 font-mono">v1.0.0</span>
-        </h1>
-        <p class="text-xs text-gray-400">Autonomous Multi-Agent Microkernel & JIT Cognitive Engine</p>
+        <div class="flex items-center gap-2.5">
+          <h1 class="text-base font-bold tracking-tight text-white">AetherFlow Studio</h1>
+          <span class="text-[11px] px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-400 border border-teal-500/30 font-mono font-medium">v1.0.0 Enterprise</span>
+          <span class="text-[11px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 font-mono font-medium">MCP Native</span>
+        </div>
+        <p class="text-xs text-gray-400">Autonomous Multi-Agent Microkernel • Hegelian Consensus • JIT Tool Synthesis • GraphRAG</p>
       </div>
     </div>
 
-    <div class="flex items-center space-x-4">
-      <div id="connectionStatus" class="flex items-center space-x-2 text-xs px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
-        <span class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
-        <span>STREAM CONNECTED (ws://4884)</span>
+    <!-- Center Tab Switcher -->
+    <nav class="flex items-center space-x-1 bg-gray-900/60 p-1 rounded-lg border border-gray-800 text-xs font-medium">
+      <button onclick="switchTab('swarm')" id="tab-swarm" class="px-3.5 py-1.5 rounded-md text-teal-400 bg-gray-800/80 transition">Swarm & Stream</button>
+      <button onclick="switchTab('graph')" id="tab-graph" class="px-3.5 py-1.5 rounded-md text-gray-400 hover:text-white transition">Knowledge Graph</button>
+      <button onclick="switchTab('speculative')" id="tab-speculative" class="px-3.5 py-1.5 rounded-md text-gray-400 hover:text-white transition">Speculative Tree</button>
+      <button onclick="switchTab('tools')" id="tab-tools" class="px-3.5 py-1.5 rounded-md text-gray-400 hover:text-white transition">JIT Sandbox</button>
+    </nav>
+
+    <!-- Right Status Status -->
+    <div class="flex items-center space-x-3">
+      <div id="connectionStatus" class="flex items-center space-x-2 text-xs px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 font-mono">
+        <span class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse glow-dot"></span>
+        <span>TELEMETRY LIVE (ws://4884)</span>
       </div>
-      <button onclick="fetchHistory()" class="text-xs text-gray-400 hover:text-white px-3 py-1.5 rounded-md hover:bg-gray-800 transition">
-        Refresh Trace
+      <button onclick="fetchHistory()" class="text-xs text-gray-300 hover:text-white px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 transition">
+        Sync Trace
       </button>
     </div>
   </header>
 
-  <!-- Main Canvas Grid -->
-  <main class="flex-1 grid grid-cols-12 gap-6 p-6 overflow-hidden">
-
+  <!-- TAB 1: SWARM & STREAM -->
+  <main id="view-swarm" class="flex-1 grid grid-cols-12 gap-5 p-5 overflow-hidden">
     <!-- Left Column: Goal Dispatcher -->
     <div class="col-span-3 flex flex-col space-y-4">
       <div class="glass rounded-xl p-5 flex flex-col space-y-4">
         <div class="flex items-center justify-between">
-          <h2 class="text-sm font-semibold text-gray-200">Dispatch Cognitive Goal</h2>
-          <span class="text-xs text-gray-500 font-mono">Hegelian Swarm</span>
+          <h2 class="text-sm font-semibold text-gray-100">Dispatch Swarm Goal</h2>
+          <span class="text-xs text-teal-400 font-mono">Speculative + Hegelian</span>
         </div>
 
-        <textarea id="goalInput" rows="4" class="w-full text-sm bg-gray-900/80 border border-gray-700/80 rounded-lg p-3 text-white placeholder-gray-500 focus:outline-none focus:border-teal-500 transition resize-none font-mono" placeholder="Enter objective (e.g. Synthesize high-frequency arbitrage risk model and calculate volatility metrics)..."></textarea>
+        <textarea id="goalInput" rows="4" class="w-full text-xs bg-gray-900/90 border border-gray-700 rounded-lg p-3 text-white placeholder-gray-500 focus:outline-none focus:border-teal-500 transition resize-none font-mono" placeholder="Enter objective (e.g. Synthesize high-frequency arbitrage risk model and calculate volatility metrics)..."></textarea>
 
         <div class="space-y-1.5">
-          <label class="text-xs text-gray-400 font-medium">Quick Presets:</label>
+          <label class="text-[11px] text-gray-400 font-medium">Quick Presets:</label>
           <div class="flex flex-col space-y-1">
-            <button onclick="setPreset(1)" class="text-left text-xs text-gray-400 hover:text-teal-300 p-2 rounded bg-gray-900/40 hover:bg-gray-800 transition truncate">
+            <button onclick="setPreset(1)" class="text-left text-xs text-gray-400 hover:text-teal-300 p-2 rounded bg-gray-900/50 hover:bg-gray-800/80 transition truncate">
               ⚡ Arbitrage Volatility Model
             </button>
-            <button onclick="setPreset(2)" class="text-left text-xs text-gray-400 hover:text-teal-300 p-2 rounded bg-gray-900/40 hover:bg-gray-800 transition truncate">
+            <button onclick="setPreset(2)" class="text-left text-xs text-gray-400 hover:text-teal-300 p-2 rounded bg-gray-900/50 hover:bg-gray-800/80 transition truncate">
               🛡️ Adversarial Security Code Audit
             </button>
-            <button onclick="setPreset(3)" class="text-left text-xs text-gray-400 hover:text-teal-300 p-2 rounded bg-gray-900/40 hover:bg-gray-800 transition truncate">
-              🧬 Synthetic Math Tool & JIT Sandbox
+            <button onclick="setPreset(3)" class="text-left text-xs text-gray-400 hover:text-teal-300 p-2 rounded bg-gray-900/50 hover:bg-gray-800/80 transition truncate">
+              🌐 Live Web Search & Synthesize Findings
             </button>
           </div>
         </div>
 
-        <button id="dispatchBtn" onclick="dispatchGoal()" class="w-full py-2.5 px-4 bg-gradient-to-r from-teal-500 to-indigo-600 hover:from-teal-400 hover:to-indigo-500 text-white font-medium text-sm rounded-lg shadow-lg shadow-teal-500/25 transition flex items-center justify-center gap-2">
-          <span>Launch Swarm</span>
+        <button id="dispatchBtn" onclick="dispatchGoal()" class="w-full py-2.5 px-4 bg-gradient-to-r from-teal-500 via-cyan-500 to-indigo-600 hover:opacity-95 text-white font-medium text-xs rounded-lg shadow-lg shadow-teal-500/20 transition flex items-center justify-center gap-2">
+          <span>Launch Multi-Agent Swarm</span>
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
         </button>
       </div>
 
-      <!-- Live Execution Telemetry -->
+      <!-- Telemetry Gauges -->
       <div class="glass rounded-xl p-5 flex flex-col space-y-3">
         <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400">Microkernel Telemetry</h3>
-        <div class="grid grid-cols-2 gap-3 text-center">
-          <div class="bg-gray-900/60 p-3 rounded-lg border border-gray-800">
-            <div id="statConfidence" class="text-xl font-bold font-mono text-teal-400">96.8%</div>
-            <div class="text-[11px] text-gray-500 mt-1">Consensus Rating</div>
+        <div class="grid grid-cols-2 gap-3 text-center font-mono">
+          <div class="bg-gray-900/80 p-3 rounded-lg border border-gray-800">
+            <div id="statConfidence" class="text-xl font-bold text-teal-400">96.8%</div>
+            <div class="text-[11px] text-gray-400 mt-0.5">Consensus Score</div>
           </div>
-          <div class="bg-gray-900/60 p-3 rounded-lg border border-gray-800">
-            <div id="statLatency" class="text-xl font-bold font-mono text-indigo-400">142ms</div>
-            <div class="text-[11px] text-gray-500 mt-1">Swarm Latency</div>
+          <div class="bg-gray-900/80 p-3 rounded-lg border border-gray-800">
+            <div id="statLatency" class="text-xl font-bold text-indigo-400">128ms</div>
+            <div class="text-[11px] text-gray-400 mt-0.5">Event Latency</div>
           </div>
-          <div class="bg-gray-900/60 p-3 rounded-lg border border-gray-800">
-            <div id="statEvents" class="text-xl font-bold font-mono text-emerald-400">0</div>
-            <div class="text-[11px] text-gray-500 mt-1">Cognitive Events</div>
+          <div class="bg-gray-900/80 p-3 rounded-lg border border-gray-800">
+            <div id="statEvents" class="text-xl font-bold text-emerald-400">0</div>
+            <div class="text-[11px] text-gray-400 mt-0.5">Cognitive Events</div>
           </div>
-          <div class="bg-gray-900/60 p-3 rounded-lg border border-gray-800">
-            <div id="statTools" class="text-xl font-bold font-mono text-violet-400">3</div>
-            <div class="text-[11px] text-gray-500 mt-1">Active Tools</div>
+          <div class="bg-gray-900/80 p-3 rounded-lg border border-gray-800">
+            <div id="statTools" class="text-xl font-bold text-violet-400">6</div>
+            <div class="text-[11px] text-gray-400 mt-0.5">Active Tools</div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Center Column: Multi-Agent Swarm Canvas & Stream -->
+    <!-- Center Column: Multi-Agent Swarm Mesh & Live Stream -->
     <div class="col-span-6 flex flex-col space-y-4">
-      
-      <!-- Multi-Agent Node Architecture Flow -->
-      <div class="glass rounded-xl p-5">
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="text-sm font-semibold text-gray-200">Hegelian Dialectic Swarm Graph</h2>
-          <span class="text-xs text-teal-400 font-mono">Active Mesh</span>
+      <div class="glass rounded-xl p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-xs font-semibold text-gray-200 uppercase tracking-wider">Hegelian Dialectic Swarm Topology</h2>
+          <span class="text-xs text-teal-400 font-mono">Convergent Loop</span>
         </div>
         
-        <div class="grid grid-cols-4 gap-3">
-          <!-- Architect -->
-          <div id="nodeArchitect" class="bg-gray-900/90 border border-teal-500/30 rounded-lg p-3 text-center transition">
-            <div class="text-xs text-teal-400 font-bold mb-1">ARCHITECT</div>
-            <div class="text-[10px] text-gray-400">Thesis & DAG Plan</div>
-            <div class="mt-2 text-[10px] px-1.5 py-0.5 rounded bg-teal-500/10 text-teal-300 font-mono">READY</div>
+        <div class="grid grid-cols-4 gap-2.5">
+          <div class="bg-gray-900/90 border border-teal-500/30 rounded-lg p-3 text-center">
+            <div class="text-[11px] text-teal-400 font-bold">ARCHITECT</div>
+            <div class="text-[10px] text-gray-400 mt-0.5">Thesis & Plan</div>
+            <div class="mt-2 text-[9px] px-1.5 py-0.5 rounded bg-teal-500/10 text-teal-300 font-mono">ACTIVE</div>
           </div>
-          <!-- Critic -->
-          <div id="nodeCritic" class="bg-gray-900/90 border border-yellow-500/30 rounded-lg p-3 text-center transition">
-            <div class="text-xs text-yellow-400 font-bold mb-1">CRITIC</div>
-            <div class="text-[10px] text-gray-400">Antithesis & Audit</div>
-            <div class="mt-2 text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-300 font-mono">READY</div>
+          <div class="bg-gray-900/90 border border-yellow-500/30 rounded-lg p-3 text-center">
+            <div class="text-[11px] text-yellow-400 font-bold">CRITIC</div>
+            <div class="text-[10px] text-gray-400 mt-0.5">Antithesis Audit</div>
+            <div class="mt-2 text-[9px] px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-300 font-mono">ACTIVE</div>
           </div>
-          <!-- Synthesizer -->
-          <div id="nodeSynth" class="bg-gray-900/90 border border-indigo-500/30 rounded-lg p-3 text-center transition">
-            <div class="text-xs text-indigo-400 font-bold mb-1">SYNTHESIZER</div>
-            <div class="text-[10px] text-gray-400">JIT Tool Synthesis</div>
-            <div class="mt-2 text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-300 font-mono">READY</div>
+          <div class="bg-gray-900/90 border border-indigo-500/30 rounded-lg p-3 text-center">
+            <div class="text-[11px] text-indigo-400 font-bold">SYNTHESIZER</div>
+            <div class="text-[10px] text-gray-400 mt-0.5">JIT Tool Synthesis</div>
+            <div class="mt-2 text-[9px] px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-300 font-mono">ACTIVE</div>
           </div>
-          <!-- Executor -->
-          <div id="nodeExec" class="bg-gray-900/90 border border-emerald-500/30 rounded-lg p-3 text-center transition">
-            <div class="text-xs text-emerald-400 font-bold mb-1">EXECUTOR</div>
-            <div class="text-[10px] text-gray-400">Sandboxed Runtime</div>
-            <div class="mt-2 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 font-mono">READY</div>
+          <div class="bg-gray-900/90 border border-emerald-500/30 rounded-lg p-3 text-center">
+            <div class="text-[11px] text-emerald-400 font-bold">EXECUTOR</div>
+            <div class="text-[10px] text-gray-400 mt-0.5">Sandboxed VM</div>
+            <div class="mt-2 text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 font-mono">ACTIVE</div>
           </div>
         </div>
       </div>
 
-      <!-- Real-time Cognitive Event Stream -->
-      <div class="glass rounded-xl p-5 flex-1 flex flex-col overflow-hidden min-h-[420px]">
+      <!-- Real-Time Event Stream -->
+      <div class="glass rounded-xl p-5 flex-1 flex flex-col overflow-hidden min-h-[440px]">
         <div class="flex items-center justify-between pb-3 border-b border-gray-800">
           <h2 class="text-sm font-semibold text-gray-200">Cognitive Event Stream</h2>
-          <span class="text-xs text-gray-500 font-mono">Real-Time WebSocket Feed</span>
+          <span class="text-xs text-gray-500 font-mono">Zero-Latency Bus</span>
         </div>
         <div id="eventStream" class="flex-1 overflow-y-auto space-y-2 mt-3 font-mono text-xs pr-1">
           <div class="text-gray-500 italic p-3 text-center">Awaiting goal dispatch. Select a preset or type an objective...</div>
@@ -176,35 +178,106 @@
     <div class="col-span-3 flex flex-col space-y-4">
       <div class="glass rounded-xl p-5 flex flex-col space-y-3">
         <div class="flex items-center justify-between">
-          <h2 class="text-sm font-semibold text-gray-200">Dynamic Tool Registry</h2>
-          <span class="text-xs text-gray-500 font-mono">JIT Sandbox</span>
+          <h2 class="text-sm font-semibold text-gray-200">Tool & MCP Registry</h2>
+          <span class="text-xs text-gray-500 font-mono">Dynamic</span>
         </div>
         <div id="toolList" class="space-y-2 max-h-[220px] overflow-y-auto">
-          <!-- Tools loaded dynamically -->
+          <!-- Loaded dynamically -->
         </div>
       </div>
 
-      <!-- Sandboxed Code Inspector -->
       <div class="glass rounded-xl p-5 flex-1 flex flex-col overflow-hidden">
         <div class="flex items-center justify-between pb-2 border-b border-gray-800">
-          <h3 class="text-xs font-semibold text-gray-300">Tool Code Inspector</h3>
-          <span class="text-[11px] text-teal-400 font-mono">Safe VM2</span>
+          <h3 class="text-xs font-semibold text-gray-300">Sandboxed Code Inspector</h3>
+          <span class="text-[11px] text-teal-400 font-mono">node:vm</span>
         </div>
-        <pre id="codeInspector" class="flex-1 mt-2 p-3 bg-gray-950 rounded-lg text-teal-300 font-mono text-[11px] overflow-x-auto overflow-y-auto">// Select a tool or synthesize one on the fly to inspect sandboxed execution code.</pre>
+        <pre id="codeInspector" class="flex-1 mt-2 p-3 bg-gray-950 rounded-lg text-teal-300 font-mono text-[11px] overflow-x-auto overflow-y-auto">// Click a tool or synthesize one on the fly to inspect sandboxed execution code.</pre>
       </div>
     </div>
+  </main>
 
+  <!-- TAB 2: KNOWLEDGE GRAPH EXPLORER -->
+  <main id="view-graph" class="flex-1 p-6 hidden">
+    <div class="glass rounded-xl p-6 h-full flex flex-col space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-base font-bold text-white">Neural Knowledge Graph (GraphRAG)</h2>
+          <p class="text-xs text-gray-400">Semantic entities, concept relationships, and reasoning links extracted across swarm debate rounds.</p>
+        </div>
+        <button onclick="renderKnowledgeGraph()" class="px-3 py-1.5 rounded-lg bg-teal-500/20 text-teal-300 border border-teal-500/30 text-xs font-mono">
+          Reload Graph
+        </button>
+      </div>
+      <div id="graphCanvas" class="flex-1 bg-gray-950/80 rounded-xl border border-gray-800 relative flex items-center justify-center overflow-hidden">
+        <svg id="graphSvg" class="w-full h-full"></svg>
+      </div>
+    </div>
+  </main>
+
+  <!-- TAB 3: SPECULATIVE TREE -->
+  <main id="view-speculative" class="flex-1 p-6 hidden">
+    <div class="glass rounded-xl p-6 h-full flex flex-col space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-base font-bold text-white">Speculative Swarm Execution Engine</h2>
+          <p class="text-xs text-gray-400">Explores parallel candidate thought trajectories concurrently, scores with Adversarial Critic, and prunes weak branches early.</p>
+        </div>
+        <button onclick="runSpeculativeDemo()" class="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-teal-500 to-indigo-600 text-white text-xs font-medium">
+          Run 3-Branch Speculative Exploration
+        </button>
+      </div>
+      <div id="speculativeContainer" class="flex-1 grid grid-cols-3 gap-4 overflow-y-auto">
+        <!-- Rendered dynamically -->
+        <div class="col-span-3 flex items-center justify-center text-gray-500 text-xs italic">
+          Click "Run 3-Branch Speculative Exploration" to execute concurrent trajectories.
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- TAB 4: JIT SANDBOX -->
+  <main id="view-tools" class="flex-1 p-6 hidden">
+    <div class="glass rounded-xl p-6 h-full flex flex-col space-y-4">
+      <div>
+        <h2 class="text-base font-bold text-white">Interactive JIT Tool Sandbox</h2>
+        <p class="text-xs text-gray-400">Directly synthesize new tools, test sample parameters, and verify sandboxed execution safety.</p>
+      </div>
+      <div class="grid grid-cols-2 gap-4 flex-1">
+        <div class="flex flex-col space-y-3">
+          <input id="synthToolName" type="text" placeholder="Tool name (e.g. black_scholes_pricer)" class="bg-gray-900 border border-gray-700 rounded-lg p-2.5 text-xs text-white font-mono focus:border-teal-500 outline-none">
+          <textarea id="synthPurpose" rows="4" placeholder="Purpose and algorithmic details..." class="bg-gray-900 border border-gray-700 rounded-lg p-2.5 text-xs text-white font-mono focus:border-teal-500 outline-none resize-none"></textarea>
+          <button onclick="triggerSynthesis()" class="py-2.5 bg-teal-600 hover:bg-teal-500 text-white rounded-lg text-xs font-medium transition">
+            Synthesize & Verify in Sandbox
+          </button>
+        </div>
+        <div class="bg-gray-950 rounded-xl p-4 border border-gray-800 flex flex-col">
+          <span class="text-xs font-mono text-gray-400 mb-2">Sandbox Verification Output:</span>
+          <pre id="synthOutput" class="flex-1 text-teal-300 font-mono text-xs overflow-auto">// Synthesized code and test output will appear here.</pre>
+        </div>
+      </div>
+    </div>
   </main>
 
   <script>
     const presets = {
       1: "Synthesize high-frequency arbitrage risk model and calculate volatility metrics",
       2: "Perform adversarial red-team audit of smart contract withdrawal pattern",
-      3: "Synthesize Monte-Carlo portfolio simulation tool and run 500 iterations"
+      3: "Search web for state-of-the-art multi-agent consensus algorithms and extract benchmarks"
     };
 
     function setPreset(n) {
       document.getElementById('goalInput').value = presets[n];
+    }
+
+    function switchTab(tab) {
+      ['swarm', 'graph', 'speculative', 'tools'].forEach(t => {
+        document.getElementById(`view-${t}`).classList.add('hidden');
+        document.getElementById(`tab-${t}`).className = 'px-3.5 py-1.5 rounded-md text-gray-400 hover:text-white transition';
+      });
+      document.getElementById(`view-${tab}`).classList.remove('hidden');
+      document.getElementById(`tab-${tab}`).className = 'px-3.5 py-1.5 rounded-md text-teal-400 bg-gray-800/80 transition';
+
+      if (tab === 'graph') renderKnowledgeGraph();
     }
 
     let eventCount = 0;
@@ -238,7 +311,6 @@
       stream.prepend(div);
     }
 
-    // Connect WebSocket
     function connectWebSocket() {
       const ws = new WebSocket(`ws://${window.location.hostname}:4884`);
       ws.onmessage = (msg) => {
@@ -273,7 +345,7 @@
           const div = document.createElement('div');
           div.className = "p-2.5 rounded bg-gray-900/50 border border-gray-800 hover:border-teal-500/50 cursor-pointer transition flex items-center justify-between";
           div.onclick = () => {
-            document.getElementById('codeInspector').innerText = tool.synthesizedCode || `// Standard Tool: ${tool.name}\n// ${tool.description}`;
+            document.getElementById('codeInspector').innerText = tool.synthesizedCode || `// Registered Tool: ${tool.name}\n// ${tool.description}`;
           };
           div.innerHTML = `
             <div>
@@ -311,7 +383,116 @@
         alert("Dispatch error: " + err);
       } finally {
         btn.disabled = false;
-        btn.innerHTML = `<span>Launch Swarm</span><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>`;
+        btn.innerHTML = `<span>Launch Multi-Agent Swarm</span><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>`;
+      }
+    }
+
+    async function runSpeculativeDemo() {
+      const container = document.getElementById('speculativeContainer');
+      container.innerHTML = `<div class="col-span-3 text-center text-xs text-teal-400 py-10 animate-pulse">Running 3 concurrent speculative reasoning branches through Adversarial Critic...</div>`;
+
+      try {
+        const res = await fetch('/api/speculative', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ goal: "Optimize distributed consensus and calculate fault tolerance thresholds", branches: 3 })
+        });
+        const data = await res.json();
+
+        container.innerHTML = '';
+        data.allBranches.forEach((b, idx) => {
+          const isWinner = b.id === data.winningBranch.id;
+          const card = document.createElement('div');
+          card.className = `p-4 rounded-xl border ${isWinner ? 'bg-teal-950/40 border-teal-500 shadow-lg shadow-teal-500/20' : 'bg-gray-900/60 border-gray-800 opacity-70'} flex flex-col space-y-3`;
+          card.innerHTML = `
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-mono font-bold ${isWinner ? 'text-teal-400' : 'text-gray-400'}">${b.id.toUpperCase()}</span>
+              ${isWinner ? '<span class="text-[9px] px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 font-mono font-bold">WINNER (PRUNED OTHERS)</span>' : '<span class="text-[9px] px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 font-mono">PRUNED</span>'}
+            </div>
+            <div class="text-xs font-mono text-gray-200">Critic Score: <span class="font-bold ${isWinner ? 'text-teal-400' : 'text-yellow-400'}">${b.criticScore}/100</span> (${b.latencyMs.toFixed(1)}ms)</div>
+            <div class="text-[11px] text-gray-400 line-clamp-3 bg-gray-950/80 p-2.5 rounded border border-gray-800">${b.strategy}</div>
+            <div class="text-[10px] text-yellow-300/80 italic border-l-2 border-yellow-500/50 pl-2">${b.criticFeedback}</div>
+          `;
+          container.appendChild(card);
+        });
+      } catch (err) {
+        container.innerHTML = `<div class="col-span-3 text-red-400 text-xs">Error running speculative execution: ${err}</div>`;
+      }
+    }
+
+    async function renderKnowledgeGraph() {
+      try {
+        const res = await fetch('/api/graph');
+        const graph = await res.json();
+        const svg = document.getElementById('graphSvg');
+        svg.innerHTML = '';
+
+        const width = svg.clientWidth || 800;
+        const height = svg.clientHeight || 500;
+
+        // Position nodes in circle
+        const nodePositions = {};
+        const total = graph.nodes.length || 1;
+        const radius = Math.min(width, height) * 0.35;
+        const cx = width / 2;
+        const cy = height / 2;
+
+        graph.nodes.forEach((node, i) => {
+          const angle = (i / total) * 2 * Math.PI;
+          nodePositions[node.id] = {
+            x: cx + radius * Math.cos(angle),
+            y: cy + radius * Math.sin(angle)
+          };
+        });
+
+        // Draw edges
+        graph.edges.forEach(edge => {
+          const s = nodePositions[edge.source];
+          const t = nodePositions[edge.target];
+          if (s && t) {
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('x1', s.x);
+            line.setAttribute('y1', s.y);
+            line.setAttribute('x2', t.x);
+            line.setAttribute('y2', t.y);
+            line.setAttribute('stroke', '#14b8a6');
+            line.setAttribute('stroke-opacity', '0.4');
+            line.setAttribute('stroke-width', '2');
+            svg.appendChild(line);
+          }
+        });
+
+        // Draw nodes
+        graph.nodes.forEach(node => {
+          const pos = nodePositions[node.id];
+          if (!pos) return;
+
+          const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+
+          const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          circle.setAttribute('cx', pos.x);
+          circle.setAttribute('cy', pos.y);
+          circle.setAttribute('r', '22');
+          circle.setAttribute('fill', node.type === 'agent' ? '#0d9488' : '#4f46e5');
+          circle.setAttribute('stroke', '#2dd4bf');
+          circle.setAttribute('stroke-width', '2');
+
+          const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          text.setAttribute('x', pos.x);
+          text.setAttribute('y', pos.y + 35);
+          text.setAttribute('text-anchor', 'middle');
+          text.setAttribute('fill', '#e2e8f0');
+          text.setAttribute('font-size', '11px');
+          text.setAttribute('font-family', 'JetBrains Mono');
+          text.textContent = node.id;
+
+          g.appendChild(circle);
+          g.appendChild(text);
+          svg.appendChild(g);
+        });
+
+      } catch (e) {
+        console.error(e);
       }
     }
 

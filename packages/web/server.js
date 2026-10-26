@@ -16,6 +16,17 @@ const kernel = new AetherKernel({
 
 await kernel.startTelemetry(TELEMETRY_PORT);
 
+// Pre-populate some knowledge graph concepts for rich out-of-the-box exploration
+kernel.graph.addNode('Objective', 'input', { label: 'High-Level Objective' });
+kernel.graph.addNode('Architect', 'agent', { role: 'orchestrator' });
+kernel.graph.addNode('Critic', 'agent', { role: 'adversary' });
+kernel.graph.addNode('ToolForge', 'runtime', { capability: 'jit_synthesis' });
+kernel.graph.addNode('SandboxedVM', 'security', { timeout: 5000 });
+kernel.graph.addEdge('Objective', 'Architect', 'decomposed_by');
+kernel.graph.addEdge('Architect', 'Critic', 'audited_by');
+kernel.graph.addEdge('Architect', 'ToolForge', 'synthesizes_tool');
+kernel.graph.addEdge('ToolForge', 'SandboxedVM', 'executes_in');
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url || '/', `http://${req.headers.host}`);
 
@@ -39,6 +50,11 @@ const server = http.createServer(async (req, res) => {
         const payload = JSON.parse(body || '{}');
         const goal = payload.goal || 'Autonomous risk & algorithmic trading assessment';
         const result = await kernel.executeGoal(goal, payload.context);
+        
+        // Add goal to memory and graph
+        kernel.memory.insert(`goal_${Date.now()}`, goal, { success: result.success });
+        kernel.graph.addNode(`Goal_${Date.now().toString().slice(-4)}`, 'goal', { text: goal });
+        
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(result));
       } catch (err) {
@@ -46,6 +62,33 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify({ error: String(err) }));
       }
     });
+    return;
+  }
+
+  // API: Speculative Execution
+  if (req.method === 'POST' && url.pathname === '/api/speculative') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', async () => {
+      try {
+        const payload = JSON.parse(body || '{}');
+        const goal = payload.goal || 'Deconstruct quantum lattice cryptography';
+        const branches = Number(payload.branches) || 3;
+        const result = await kernel.executeSpeculative(goal, branches);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(result));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: String(err) }));
+      }
+    });
+    return;
+  }
+
+  // API: Knowledge Graph
+  if (req.method === 'GET' && url.pathname === '/api/graph') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(kernel.graph.toJSON()));
     return;
   }
 
@@ -90,6 +133,6 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`\n🌌 AetherFlow Visual Cognitive Canvas running at http://localhost:${PORT}`);
+  console.log(`\n🌌 AetherFlow Visual Cognitive Studio running at http://localhost:${PORT}`);
   console.log(`📡 WebSocket Telemetry stream connected at ws://localhost:${TELEMETRY_PORT}\n`);
 });
