@@ -2,7 +2,11 @@ import { ArchitectAgent } from '../agents/ArchitectAgent.js';
 import { CriticAgent } from '../agents/CriticAgent.js';
 import { ExecutorAgent } from '../agents/ExecutorAgent.js';
 import { SynthesizerAgent } from '../agents/SynthesizerAgent.js';
+import { ClusterNode } from '../cluster/ClusterNode.js';
+import { BrowserAgent } from '../computer/BrowserAgent.js';
 import { HegelianEngine } from '../consensus/HegelianEngine.js';
+import { GeneticOptimizer } from '../evolution/GeneticOptimizer.js';
+import { SecurityFirewall } from '../guardrails/SecurityFirewall.js';
 import { KnowledgeGraph } from '../memory/KnowledgeGraph.js';
 import { VectorMemory } from '../memory/VectorMemory.js';
 import { MCPHub } from '../mcp/MCPHub.js';
@@ -16,6 +20,7 @@ import { Sandbox } from '../tools/Sandbox.js';
 import { WebSearchEngine } from '../tools/search/WebSearchEngine.js';
 import { ToolForge } from '../tools/ToolForge.js';
 import { ToolRegistry } from '../tools/ToolRegistry.js';
+import { VoiceKernel } from '../voice/VoiceKernel.js';
 import {
   ExecutionPlan,
   KernelConfig,
@@ -55,6 +60,13 @@ export class AetherKernel {
   public web: WebSearchEngine;
   public speculative: SpeculativeEngine;
 
+  // Advanced Frontiers: Computer Use, Evolution, Cluster, Security & Voice
+  public browser: BrowserAgent;
+  public firewall: SecurityFirewall;
+  public evolution: GeneticOptimizer;
+  public cluster: ClusterNode;
+  public voice: VoiceKernel;
+
   // Swarm Agents
   public architect: ArchitectAgent;
   public critic: CriticAgent;
@@ -92,22 +104,29 @@ export class AetherKernel {
     this.registry = new ToolRegistry();
     this.mcp = new MCPHub(this.registry);
 
-    // 4. Initialize Execution Tooling & Sandbox
+    // 4. Initialize Advanced Frontiers
+    this.browser = new BrowserAgent();
+    this.firewall = new SecurityFirewall(500_000);
+    this.evolution = new GeneticOptimizer(this.provider);
+    this.cluster = new ClusterNode('node_master_01');
+    this.voice = new VoiceKernel(this.bus);
+
+    // 5. Initialize Execution Tooling & Sandbox
     this.sandbox = new Sandbox(this.config.sandboxTimeoutMs);
     this.forge = new ToolForge(this.provider, this.registry, this.sandbox, this.bus);
 
-    // 5. Initialize Dialectic Consensus & Speculative Swarms
+    // 6. Initialize Dialectic Consensus & Speculative Swarms
     this.hegelian = new HegelianEngine(this.provider, this.bus, this.config.maxDialecticRounds);
     this.speculative = new SpeculativeEngine(this.provider, this.bus);
 
-    // 6. Initialize Agents
+    // 7. Initialize Agents
     this.architect = new ArchitectAgent(this.provider, this.bus);
     this.critic = new CriticAgent(this.provider, this.bus);
     this.synthesizer = new SynthesizerAgent(this.provider, this.bus);
     this.executor = new ExecutorAgent(this.provider, this.bus, this.registry);
 
-    // Register Memory tools into ToolRegistry
-    this.registerMemoryTools();
+    // Register Memory & Frontier tools into ToolRegistry
+    this.registerFrontierTools();
 
     this.bus.emit('kernel:init', { provider: this.provider.name, config: this.config }, 'AetherKernel', 'info');
   }
@@ -119,7 +138,8 @@ export class AetherKernel {
     return await this.speculative.execute(goal, branchCount);
   }
 
-  private registerMemoryTools(): void {
+  private registerFrontierTools(): void {
+    // Memory tools
     this.registry.register({
       name: 'memory_store',
       description: 'Stores semantic data into neural vector memory for future recall.',
@@ -164,6 +184,30 @@ export class AetherKernel {
         const edge = this.graph.addEdge(String(args.source), String(args.target), String(args.relation));
         return { linked: true, edgeId: edge.id };
       },
+    });
+
+    // Computer Use / Browser Automation
+    this.registry.register({
+      name: 'browser_navigate',
+      description: 'Navigates to a webpage and extracts interactive DOM elements.',
+      parameters: [
+        { name: 'url', type: 'string', description: 'Target URL', required: true }
+      ],
+      handler: async (args) => {
+        return await this.browser.navigate(String(args.url));
+      }
+    });
+
+    // Security & Guardrail Audit
+    this.registry.register({
+      name: 'security_audit',
+      description: 'Audits a string or code for prompt injections and sensitive data.',
+      parameters: [
+        { name: 'input', type: 'string', description: 'Input text to audit', required: true }
+      ],
+      handler: (args) => {
+        return this.firewall.auditInput(String(args.input));
+      }
     });
   }
 
