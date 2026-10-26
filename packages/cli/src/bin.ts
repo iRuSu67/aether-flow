@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { AetherKernel, CognitiveEvent } from '@aether-flow/core';
+import { startRepl } from './repl.js';
 
 // ANSI color helpers
 const c = {
@@ -35,6 +36,8 @@ async function main() {
   if (command === 'run') {
     const goal = args.slice(1).join(' ') || 'Autonomous architectural code review and security audit';
     await runGoal(goal);
+  } else if (command === 'repl' || command === 'interactive') {
+    await startRepl();
   } else if (command === 'synth') {
     const toolName = args[1] || 'statistical_calc';
     const purpose = args.slice(2).join(' ') || 'Calculate statistical distributions';

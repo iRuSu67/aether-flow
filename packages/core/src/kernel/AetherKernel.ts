@@ -5,17 +5,21 @@ import { SynthesizerAgent } from '../agents/SynthesizerAgent.js';
 import { ClusterNode } from '../cluster/ClusterNode.js';
 import { BrowserAgent } from '../computer/BrowserAgent.js';
 import { HegelianEngine } from '../consensus/HegelianEngine.js';
+import { ArenaJudge } from '../evaluation/ArenaJudge.js';
 import { GeneticOptimizer } from '../evolution/GeneticOptimizer.js';
 import { SecurityFirewall } from '../guardrails/SecurityFirewall.js';
 import { KnowledgeGraph } from '../memory/KnowledgeGraph.js';
+import { SkillRegistry } from '../memory/SkillRegistry.js';
 import { VectorMemory } from '../memory/VectorMemory.js';
 import { MCPHub } from '../mcp/MCPHub.js';
 import { GeminiProvider } from '../providers/GeminiProvider.js';
 import { MockProvider } from '../providers/MockProvider.js';
 import { ModelProvider } from '../providers/ModelProvider.js';
 import { OpenAIProvider } from '../providers/OpenAIProvider.js';
+import { MCTSEngine, MCTSResult } from '../reasoning/MCTSEngine.js';
 import { SpeculativeEngine, SpeculativeResult } from '../swarm/SpeculativeEngine.js';
 import { TelemetryServer } from '../telemetry/WebSocketServer.js';
+import { ASTVerifier } from '../tools/ASTVerifier.js';
 import { Sandbox } from '../tools/Sandbox.js';
 import { WebSearchEngine } from '../tools/search/WebSearchEngine.js';
 import { ToolForge } from '../tools/ToolForge.js';
@@ -56,9 +60,11 @@ export class AetherKernel {
   // Next-Gen Neural Memory, MCP & Swarm
   public memory: VectorMemory;
   public graph: KnowledgeGraph;
+  public skills: SkillRegistry;
   public mcp: MCPHub;
   public web: WebSearchEngine;
   public speculative: SpeculativeEngine;
+  public mcts: MCTSEngine;
 
   // Advanced Frontiers: Computer Use, Evolution, Cluster, Security & Voice
   public browser: BrowserAgent;
@@ -66,6 +72,8 @@ export class AetherKernel {
   public evolution: GeneticOptimizer;
   public cluster: ClusterNode;
   public voice: VoiceKernel;
+  public astVerifier: ASTVerifier;
+  public arena: ArenaJudge;
 
   // Swarm Agents
   public architect: ArchitectAgent;
@@ -100,6 +108,7 @@ export class AetherKernel {
     // 3. Initialize Memory, Knowledge Graph, MCP Hub & Web
     this.memory = new VectorMemory(64);
     this.graph = new KnowledgeGraph();
+    this.skills = new SkillRegistry();
     this.web = new WebSearchEngine();
     this.registry = new ToolRegistry();
     this.mcp = new MCPHub(this.registry);
@@ -110,14 +119,17 @@ export class AetherKernel {
     this.evolution = new GeneticOptimizer(this.provider);
     this.cluster = new ClusterNode('node_master_01');
     this.voice = new VoiceKernel(this.bus);
+    this.astVerifier = new ASTVerifier();
+    this.arena = new ArenaJudge();
 
     // 5. Initialize Execution Tooling & Sandbox
     this.sandbox = new Sandbox(this.config.sandboxTimeoutMs);
     this.forge = new ToolForge(this.provider, this.registry, this.sandbox, this.bus);
 
-    // 6. Initialize Dialectic Consensus & Speculative Swarms
+    // 6. Initialize Dialectic Consensus, Speculative Swarms & MCTS Reasoning
     this.hegelian = new HegelianEngine(this.provider, this.bus, this.config.maxDialecticRounds);
     this.speculative = new SpeculativeEngine(this.provider, this.bus);
+    this.mcts = new MCTSEngine(this.provider, this.bus);
 
     // 7. Initialize Agents
     this.architect = new ArchitectAgent(this.provider, this.bus);
@@ -136,6 +148,13 @@ export class AetherKernel {
    */
   async executeSpeculative(goal: string, branchCount = 3): Promise<SpeculativeResult> {
     return await this.speculative.execute(goal, branchCount);
+  }
+
+  /**
+   * Run Monte Carlo Tree Search (MCTS) & Tree-of-Thoughts non-linear reasoning
+   */
+  async searchMCTS(objective: string): Promise<MCTSResult> {
+    return await this.mcts.search(objective);
   }
 
   private registerFrontierTools(): void {
@@ -224,7 +243,11 @@ export class AetherKernel {
    * Synthesize a tool dynamically
    */
   async synthesizeTool(req: ToolSynthesisRequest): Promise<ToolSynthesisResult> {
-    return await this.forge.synthesize(req);
+    const res = await this.forge.synthesize(req);
+    if (res.success && res.tool) {
+      this.skills.saveSkill(res.tool, ['jit', 'synthesized']);
+    }
+    return res;
   }
 
   /**
@@ -261,6 +284,7 @@ export class AetherKernel {
 
           if (synth.success && synth.tool) {
             synthesizedTools.push(synth.tool.name);
+            this.skills.saveSkill(synth.tool, ['jit', 'autonomous']);
             step.output = await this.executor.runTool(synth.tool.name, { input: goal });
           } else {
             step.output = await this.synthesizer.process(goal, context);

@@ -245,6 +245,9 @@ print(f"Latency: {result.execution_time_ms}ms")
 | `examples/03-financial-forecasting` | Financial momentum forecasting swarm | `node examples/03-financial-forecasting/index.js` |
 | `examples/04-self-evolving-agents` | DSPy-style genetic prompt evolution | `node examples/04-self-evolving-agents/index.js` |
 | `examples/05-autonomous-computer-use`| DOM parsing & browser action execution | `node examples/05-autonomous-computer-use/index.js` |
+| `examples/06-tree-of-thoughts-mcts` | Monte Carlo Tree Search non-linear reasoning | `node examples/06-tree-of-thoughts-mcts/index.js` |
+| `examples/07-voyager-continuous-learning`| Continuous Skill Library self-learning | `node examples/07-voyager-continuous-learning/index.js` |
+| `examples/08-llm-arena-evaluation` | Multi-model arena & live Elo ranking | `node examples/08-llm-arena-evaluation/index.js` |
 
 ---
 

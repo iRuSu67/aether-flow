@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AetherFlow Studio — Autonomous Multi-Agent Microkernel & Cognitive Studio</title>
+  <title>AetherFlow Studio — Autonomous Multi-Agent Microkernel & Cognitive Operating System</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <script>
@@ -27,9 +27,8 @@
     }
   </script>
   <style>
-    body { background-color: #080c14; color: #e2e8f0; }
-    .glass { background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(14px); border: 1px solid rgba(255, 255, 255, 0.08); }
-    .active-tab { border-bottom: 2px solid #14b8a6; color: #2dd4bf; }
+    body { background-color: #06090f; color: #e2e8f0; }
+    .glass { background: rgba(13, 18, 30, 0.78); backdrop-filter: blur(14px); border: 1px solid rgba(255, 255, 255, 0.08); }
     .glow-dot { box-shadow: 0 0 10px #14b8a6; }
     svg line { stroke-dasharray: 4; animation: dash 20s linear infinite; }
     @keyframes dash { to { stroke-dashoffset: -1000; } }
@@ -38,34 +37,36 @@
 <body class="min-h-screen flex flex-col font-sans antialiased select-none">
 
   <!-- Top App Navigation -->
-  <header class="glass sticky top-0 z-50 px-6 py-3.5 flex items-center justify-between border-b border-gray-800/80">
-    <div class="flex items-center space-x-4">
+  <header class="glass sticky top-0 z-50 px-6 py-3 flex items-center justify-between border-b border-gray-800/80">
+    <div class="flex items-center space-x-3.5">
       <div class="h-9 w-9 rounded-xl bg-gradient-to-tr from-teal-500 via-cyan-500 to-indigo-600 flex items-center justify-center font-bold text-white shadow-lg shadow-teal-500/25">
         AE
       </div>
       <div>
-        <div class="flex items-center gap-2.5">
+        <div class="flex items-center gap-2">
           <h1 class="text-base font-bold tracking-tight text-white">AetherFlow Studio</h1>
-          <span class="text-[11px] px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-400 border border-teal-500/30 font-mono font-medium">v1.0.0 Enterprise</span>
-          <span class="text-[11px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 font-mono font-medium">MCP Native</span>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-400 border border-teal-500/30 font-mono font-medium">v1.0.0</span>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 font-mono font-medium">MCP Native</span>
         </div>
-        <p class="text-xs text-gray-400">Autonomous Multi-Agent Microkernel • Hegelian Consensus • JIT Tool Synthesis • GraphRAG</p>
+        <p class="text-[11px] text-gray-400">Autonomous Multi-Agent Microkernel • MCTS • GraphRAG • JIT Tools • Self-Evolution</p>
       </div>
     </div>
 
     <!-- Center Tab Switcher -->
-    <nav class="flex items-center space-x-1 bg-gray-900/60 p-1 rounded-lg border border-gray-800 text-xs font-medium">
-      <button onclick="switchTab('swarm')" id="tab-swarm" class="px-3.5 py-1.5 rounded-md text-teal-400 bg-gray-800/80 transition">Swarm & Stream</button>
-      <button onclick="switchTab('graph')" id="tab-graph" class="px-3.5 py-1.5 rounded-md text-gray-400 hover:text-white transition">Knowledge Graph</button>
-      <button onclick="switchTab('speculative')" id="tab-speculative" class="px-3.5 py-1.5 rounded-md text-gray-400 hover:text-white transition">Speculative Tree</button>
-      <button onclick="switchTab('tools')" id="tab-tools" class="px-3.5 py-1.5 rounded-md text-gray-400 hover:text-white transition">JIT Sandbox</button>
+    <nav class="flex items-center space-x-1 bg-gray-900/70 p-1 rounded-lg border border-gray-800 text-xs font-medium">
+      <button onclick="switchTab('swarm')" id="tab-swarm" class="px-3 py-1.5 rounded-md text-teal-400 bg-gray-800/90 transition">Swarm & Stream</button>
+      <button onclick="switchTab('mcts')" id="tab-mcts" class="px-3 py-1.5 rounded-md text-gray-400 hover:text-white transition">MCTS Tree-of-Thoughts</button>
+      <button onclick="switchTab('graph')" id="tab-graph" class="px-3 py-1.5 rounded-md text-gray-400 hover:text-white transition">Knowledge Graph</button>
+      <button onclick="switchTab('speculative')" id="tab-speculative" class="px-3 py-1.5 rounded-md text-gray-400 hover:text-white transition">Speculative Tree</button>
+      <button onclick="switchTab('arena')" id="tab-arena" class="px-3 py-1.5 rounded-md text-gray-400 hover:text-white transition">Model Arena</button>
+      <button onclick="switchTab('skills')" id="tab-skills" class="px-3 py-1.5 rounded-md text-gray-400 hover:text-white transition">Skill Library</button>
     </nav>
 
-    <!-- Right Status Status -->
+    <!-- Right Status -->
     <div class="flex items-center space-x-3">
       <div id="connectionStatus" class="flex items-center space-x-2 text-xs px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 font-mono">
         <span class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse glow-dot"></span>
-        <span>TELEMETRY LIVE (ws://4884)</span>
+        <span>STREAM LIVE (ws://4884)</span>
       </div>
       <button onclick="fetchHistory()" class="text-xs text-gray-300 hover:text-white px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 transition">
         Sync Trace
@@ -80,7 +81,7 @@
       <div class="glass rounded-xl p-5 flex flex-col space-y-4">
         <div class="flex items-center justify-between">
           <h2 class="text-sm font-semibold text-gray-100">Dispatch Swarm Goal</h2>
-          <span class="text-xs text-teal-400 font-mono">Speculative + Hegelian</span>
+          <span class="text-xs text-teal-400 font-mono">Dialectic + MCTS</span>
         </div>
 
         <textarea id="goalInput" rows="4" class="w-full text-xs bg-gray-900/90 border border-gray-700 rounded-lg p-3 text-white placeholder-gray-500 focus:outline-none focus:border-teal-500 transition resize-none font-mono" placeholder="Enter objective (e.g. Synthesize high-frequency arbitrage risk model and calculate volatility metrics)..."></textarea>
@@ -123,7 +124,7 @@
             <div class="text-[11px] text-gray-400 mt-0.5">Cognitive Events</div>
           </div>
           <div class="bg-gray-900/80 p-3 rounded-lg border border-gray-800">
-            <div id="statTools" class="text-xl font-bold text-violet-400">6</div>
+            <div id="statTools" class="text-xl font-bold text-violet-400">8</div>
             <div class="text-[11px] text-gray-400 mt-0.5">Active Tools</div>
           </div>
         </div>
@@ -189,14 +190,32 @@
       <div class="glass rounded-xl p-5 flex-1 flex flex-col overflow-hidden">
         <div class="flex items-center justify-between pb-2 border-b border-gray-800">
           <h3 class="text-xs font-semibold text-gray-300">Sandboxed Code Inspector</h3>
-          <span class="text-[11px] text-teal-400 font-mono">node:vm</span>
+          <span class="text-[11px] text-teal-400 font-mono">node:vm + AST</span>
         </div>
         <pre id="codeInspector" class="flex-1 mt-2 p-3 bg-gray-950 rounded-lg text-teal-300 font-mono text-[11px] overflow-x-auto overflow-y-auto">// Click a tool or synthesize one on the fly to inspect sandboxed execution code.</pre>
       </div>
     </div>
   </main>
 
-  <!-- TAB 2: KNOWLEDGE GRAPH EXPLORER -->
+  <!-- TAB 2: MCTS TREE-OF-THOUGHTS -->
+  <main id="view-mcts" class="flex-1 p-6 hidden">
+    <div class="glass rounded-xl p-6 h-full flex flex-col space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-base font-bold text-white">Monte Carlo Tree Search (MCTS) & Tree-of-Thoughts</h2>
+          <p class="text-xs text-gray-400">Non-linear decision space exploration with UCB1 exploration constant (Selection $\rightarrow$ Expansion $\rightarrow$ Rollout $\rightarrow$ Backprop).</p>
+        </div>
+        <button onclick="runMctsDemo()" class="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-teal-500 to-indigo-600 text-white text-xs font-medium">
+          Run MCTS Exploration
+        </button>
+      </div>
+      <div id="mctsContainer" class="flex-1 bg-gray-950/80 rounded-xl border border-gray-800 p-5 overflow-y-auto space-y-3 font-mono text-xs">
+        <div class="text-gray-500 italic text-center py-10">Click "Run MCTS Exploration" to trigger non-linear tree search.</div>
+      </div>
+    </div>
+  </main>
+
+  <!-- TAB 3: KNOWLEDGE GRAPH EXPLORER -->
   <main id="view-graph" class="flex-1 p-6 hidden">
     <div class="glass rounded-xl p-6 h-full flex flex-col space-y-4">
       <div class="flex items-center justify-between">
@@ -214,7 +233,7 @@
     </div>
   </main>
 
-  <!-- TAB 3: SPECULATIVE TREE -->
+  <!-- TAB 4: SPECULATIVE TREE -->
   <main id="view-speculative" class="flex-1 p-6 hidden">
     <div class="glass rounded-xl p-6 h-full flex flex-col space-y-4">
       <div class="flex items-center justify-between">
@@ -227,7 +246,6 @@
         </button>
       </div>
       <div id="speculativeContainer" class="flex-1 grid grid-cols-3 gap-4 overflow-y-auto">
-        <!-- Rendered dynamically -->
         <div class="col-span-3 flex items-center justify-center text-gray-500 text-xs italic">
           Click "Run 3-Branch Speculative Exploration" to execute concurrent trajectories.
         </div>
@@ -235,25 +253,51 @@
     </div>
   </main>
 
-  <!-- TAB 4: JIT SANDBOX -->
-  <main id="view-tools" class="flex-1 p-6 hidden">
+  <!-- TAB 5: MODEL ARENA -->
+  <main id="view-arena" class="flex-1 p-6 hidden">
     <div class="glass rounded-xl p-6 h-full flex flex-col space-y-4">
-      <div>
-        <h2 class="text-base font-bold text-white">Interactive JIT Tool Sandbox</h2>
-        <p class="text-xs text-gray-400">Directly synthesize new tools, test sample parameters, and verify sandboxed execution safety.</p>
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-base font-bold text-white">Model Arena Leaderboard (LLM-as-a-Judge)</h2>
+          <p class="text-xs text-gray-400">Head-to-head evaluation of Google Gemini, GPT-4o, Claude 3.5 Sonnet, DeepSeek R1 with live Elo ratings.</p>
+        </div>
+        <button onclick="loadArenaLeaderboard()" class="px-3 py-1.5 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-xs font-mono">
+          Refresh Leaderboard
+        </button>
       </div>
-      <div class="grid grid-cols-2 gap-4 flex-1">
-        <div class="flex flex-col space-y-3">
-          <input id="synthToolName" type="text" placeholder="Tool name (e.g. black_scholes_pricer)" class="bg-gray-900 border border-gray-700 rounded-lg p-2.5 text-xs text-white font-mono focus:border-teal-500 outline-none">
-          <textarea id="synthPurpose" rows="4" placeholder="Purpose and algorithmic details..." class="bg-gray-900 border border-gray-700 rounded-lg p-2.5 text-xs text-white font-mono focus:border-teal-500 outline-none resize-none"></textarea>
-          <button onclick="triggerSynthesis()" class="py-2.5 bg-teal-600 hover:bg-teal-500 text-white rounded-lg text-xs font-medium transition">
-            Synthesize & Verify in Sandbox
-          </button>
+      <div class="flex-1 bg-gray-950 rounded-xl border border-gray-800 p-5 overflow-y-auto">
+        <table class="w-full text-left text-xs font-mono">
+          <thead>
+            <tr class="border-b border-gray-800 text-gray-400">
+              <th class="pb-3">Rank</th>
+              <th class="pb-3">Model</th>
+              <th class="pb-3">Elo Rating</th>
+              <th class="pb-3">Record (W-L-T)</th>
+              <th class="pb-3">Status</th>
+            </tr>
+          </thead>
+          <tbody id="arenaBody" class="divide-y divide-gray-900">
+            <!-- Loaded dynamically -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- TAB 6: SKILL LIBRARY -->
+  <main id="view-skills" class="flex-1 p-6 hidden">
+    <div class="glass rounded-xl p-6 h-full flex flex-col space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-base font-bold text-white">Voyager Continuous Skill Library</h2>
+          <p class="text-xs text-gray-400">Permanent memory bank of verified JIT tools and skills indexed with vector embeddings for sub-2ms recall.</p>
         </div>
-        <div class="bg-gray-950 rounded-xl p-4 border border-gray-800 flex flex-col">
-          <span class="text-xs font-mono text-gray-400 mb-2">Sandbox Verification Output:</span>
-          <pre id="synthOutput" class="flex-1 text-teal-300 font-mono text-xs overflow-auto">// Synthesized code and test output will appear here.</pre>
-        </div>
+        <button onclick="loadSkillLibrary()" class="px-3 py-1.5 rounded-lg bg-teal-500/20 text-teal-300 border border-teal-500/30 text-xs font-mono">
+          Refresh Skills
+        </button>
+      </div>
+      <div id="skillsGrid" class="flex-1 grid grid-cols-3 gap-4 overflow-y-auto">
+        <!-- Loaded dynamically -->
       </div>
     </div>
   </main>
@@ -270,14 +314,16 @@
     }
 
     function switchTab(tab) {
-      ['swarm', 'graph', 'speculative', 'tools'].forEach(t => {
+      ['swarm', 'mcts', 'graph', 'speculative', 'arena', 'skills'].forEach(t => {
         document.getElementById(`view-${t}`).classList.add('hidden');
-        document.getElementById(`tab-${t}`).className = 'px-3.5 py-1.5 rounded-md text-gray-400 hover:text-white transition';
+        document.getElementById(`tab-${t}`).className = 'px-3 py-1.5 rounded-md text-gray-400 hover:text-white transition';
       });
       document.getElementById(`view-${tab}`).classList.remove('hidden');
-      document.getElementById(`tab-${tab}`).className = 'px-3.5 py-1.5 rounded-md text-teal-400 bg-gray-800/80 transition';
+      document.getElementById(`tab-${tab}`).className = 'px-3 py-1.5 rounded-md text-teal-400 bg-gray-800/90 transition';
 
       if (tab === 'graph') renderKnowledgeGraph();
+      if (tab === 'arena') loadArenaLeaderboard();
+      if (tab === 'skills') loadSkillLibrary();
     }
 
     let eventCount = 0;
@@ -387,6 +433,93 @@
       }
     }
 
+    async function runMctsDemo() {
+      const container = document.getElementById('mctsContainer');
+      container.innerHTML = `<div class="text-teal-400 text-center py-10 animate-pulse">Running Monte Carlo Tree Search across decision state nodes...</div>`;
+
+      try {
+        const res = await fetch('/api/mcts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ goal: "Derive fault-tolerant state-machine replication with logarithmic proof size" })
+        });
+        const data = await res.json();
+
+        container.innerHTML = `
+          <div class="p-3 bg-teal-950/40 border border-teal-500/40 rounded-lg flex items-center justify-between">
+            <span class="text-teal-300 font-bold">MCTS Optimal Path Converged</span>
+            <span class="text-gray-400">Explored ${data.totalNodesExplored} nodes in ${data.searchDurationMs.toFixed(2)}ms (Value: ${(data.averageNodeValue * 100).toFixed(1)}%)</span>
+          </div>
+          <div class="space-y-2 mt-3">
+            ${data.bestTrajectory.map((step, idx) => `
+              <div class="p-2.5 rounded bg-gray-900 border border-gray-800 text-xs flex gap-3">
+                <span class="text-teal-400 font-bold">T${idx + 1}</span>
+                <span class="text-gray-300">${step}</span>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      } catch (err) {
+        container.innerHTML = `<div class="text-red-400 text-xs">MCTS Error: ${err}</div>`;
+      }
+    }
+
+    async function loadArenaLeaderboard() {
+      try {
+        const res = await fetch('/api/arena');
+        const competitors = await res.json();
+        const body = document.getElementById('arenaBody');
+        body.innerHTML = '';
+
+        competitors.forEach((c, idx) => {
+          const row = document.createElement('tr');
+          row.className = 'hover:bg-gray-900/60 transition';
+          row.innerHTML = `
+            <td class="py-3 font-bold text-teal-400">#${idx + 1}</td>
+            <td class="py-3 font-medium text-white">${c.name}</td>
+            <td class="py-3 text-indigo-400 font-bold">${c.eloRating}</td>
+            <td class="py-3 text-gray-400">${c.wins}W - ${c.losses}L - ${c.ties}T</td>
+            <td class="py-3"><span class="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px]">ACTIVE</span></td>
+          `;
+          body.appendChild(row);
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function loadSkillLibrary() {
+      try {
+        const res = await fetch('/api/skills');
+        const skills = await res.json();
+        const grid = document.getElementById('skillsGrid');
+        grid.innerHTML = '';
+
+        if (skills.length === 0) {
+          grid.innerHTML = `<div class="col-span-3 text-center text-gray-500 py-10 text-xs italic">No skills synthesized yet. Dispatch a swarm goal to synthesize skills!</div>`;
+          return;
+        }
+
+        skills.forEach(skill => {
+          const card = document.createElement('div');
+          card.className = "p-4 rounded-xl bg-gray-900/80 border border-gray-800 flex flex-col space-y-2";
+          card.innerHTML = `
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-teal-300 font-mono">${skill.name}</span>
+              <span class="text-[9px] px-1.5 py-0.5 rounded bg-teal-500/10 text-teal-400 font-mono">${skill.successCount} Uses</span>
+            </div>
+            <p class="text-[11px] text-gray-400">${skill.description}</p>
+            <div class="flex gap-1 flex-wrap mt-2">
+              ${skill.tags.map(t => `<span class="text-[9px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 font-mono">${t}</span>`).join('')}
+            </div>
+          `;
+          grid.appendChild(card);
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
     async function runSpeculativeDemo() {
       const container = document.getElementById('speculativeContainer');
       container.innerHTML = `<div class="col-span-3 text-center text-xs text-teal-400 py-10 animate-pulse">Running 3 concurrent speculative reasoning branches through Adversarial Critic...</div>`;
@@ -400,7 +533,7 @@
         const data = await res.json();
 
         container.innerHTML = '';
-        data.allBranches.forEach((b, idx) => {
+        data.allBranches.forEach((b) => {
           const isWinner = b.id === data.winningBranch.id;
           const card = document.createElement('div');
           card.className = `p-4 rounded-xl border ${isWinner ? 'bg-teal-950/40 border-teal-500 shadow-lg shadow-teal-500/20' : 'bg-gray-900/60 border-gray-800 opacity-70'} flex flex-col space-y-3`;
@@ -430,7 +563,6 @@
         const width = svg.clientWidth || 800;
         const height = svg.clientHeight || 500;
 
-        // Position nodes in circle
         const nodePositions = {};
         const total = graph.nodes.length || 1;
         const radius = Math.min(width, height) * 0.35;
@@ -445,7 +577,6 @@
           };
         });
 
-        // Draw edges
         graph.edges.forEach(edge => {
           const s = nodePositions[edge.source];
           const t = nodePositions[edge.target];
@@ -462,7 +593,6 @@
           }
         });
 
-        // Draw nodes
         graph.nodes.forEach(node => {
           const pos = nodePositions[node.id];
           if (!pos) return;

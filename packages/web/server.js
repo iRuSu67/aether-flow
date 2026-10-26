@@ -20,9 +20,11 @@ await kernel.startTelemetry(TELEMETRY_PORT);
 kernel.graph.addNode('Objective', 'input', { label: 'High-Level Objective' });
 kernel.graph.addNode('Architect', 'agent', { role: 'orchestrator' });
 kernel.graph.addNode('Critic', 'agent', { role: 'adversary' });
+kernel.graph.addNode('MCTSEngine', 'reasoning', { exploration: 'UCB1' });
 kernel.graph.addNode('ToolForge', 'runtime', { capability: 'jit_synthesis' });
 kernel.graph.addNode('SandboxedVM', 'security', { timeout: 5000 });
 kernel.graph.addEdge('Objective', 'Architect', 'decomposed_by');
+kernel.graph.addEdge('Architect', 'MCTSEngine', 'optimizes_via');
 kernel.graph.addEdge('Architect', 'Critic', 'audited_by');
 kernel.graph.addEdge('Architect', 'ToolForge', 'synthesizes_tool');
 kernel.graph.addEdge('ToolForge', 'SandboxedVM', 'executes_in');
@@ -65,6 +67,25 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // API: Monte Carlo Tree Search (MCTS)
+  if (req.method === 'POST' && url.pathname === '/api/mcts') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', async () => {
+      try {
+        const payload = JSON.parse(body || '{}');
+        const goal = payload.goal || 'Derive non-linear equilibrium state';
+        const result = await kernel.searchMCTS(goal);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(result));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: String(err) }));
+      }
+    });
+    return;
+  }
+
   // API: Speculative Execution
   if (req.method === 'POST' && url.pathname === '/api/speculative') {
     let body = '';
@@ -89,6 +110,20 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'GET' && url.pathname === '/api/graph') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(kernel.graph.toJSON()));
+    return;
+  }
+
+  // API: Persistent Skills
+  if (req.method === 'GET' && url.pathname === '/api/skills') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(kernel.skills.listSkills()));
+    return;
+  }
+
+  // API: Arena Leaderboard
+  if (req.method === 'GET' && url.pathname === '/api/arena') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(kernel.arena.getLeaderboard()));
     return;
   }
 

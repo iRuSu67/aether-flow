@@ -1,6 +1,7 @@
 import { CognitiveBus } from '../kernel/CognitiveBus.js';
 import { ModelProvider } from '../providers/ModelProvider.js';
 import { ToolDefinition, ToolSynthesisRequest, ToolSynthesisResult } from '../types.js';
+import { ASTVerifier } from './ASTVerifier.js';
 import { Sandbox } from './Sandbox.js';
 import { ToolRegistry } from './ToolRegistry.js';
 
@@ -8,6 +9,7 @@ export class ToolForge {
   private provider: ModelProvider;
   private registry: ToolRegistry;
   private sandbox: Sandbox;
+  private astVerifier: ASTVerifier;
   private bus?: CognitiveBus;
   private maxRetries = 3;
 
@@ -20,6 +22,7 @@ export class ToolForge {
     this.provider = provider;
     this.registry = registry;
     this.sandbox = sandbox || new Sandbox();
+    this.astVerifier = new ASTVerifier();
     this.bus = bus;
   }
 
@@ -45,6 +48,14 @@ export class ToolForge {
       try {
         const rawCode = await this.provider.generateText({ prompt });
         code = this.extractCode(rawCode);
+
+        // Static AST Security Verification
+        const astReport = this.astVerifier.verify(code);
+        if (!astReport.isSafe) {
+          lastError = `AST Security Scan Failed: ${astReport.bannedPatternsDetected.join(', ')}`;
+          this.bus?.emit('self_heal:triggered', { attempt, error: lastError, tool: request.toolName }, 'ToolForge', 'warn');
+          continue;
+        }
 
         // Verify in sandbox with simulated/sample arguments
         const sampleArgs = this.generateSampleArgs(request);
