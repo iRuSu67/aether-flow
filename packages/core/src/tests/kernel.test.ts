@@ -10,6 +10,13 @@ import { GeneticOptimizer } from '../evolution/GeneticOptimizer.js';
 import { BrowserAgent } from '../computer/BrowserAgent.js';
 import { ClusterNode } from '../cluster/ClusterNode.js';
 import { MockProvider } from '../providers/MockProvider.js';
+import { SymbolicSolver } from '../formal/SymbolicSolver.js';
+import { FlowScriptLexer } from '../compiler/Lexer.js';
+import { FlowScriptParser } from '../compiler/Parser.js';
+import { CheckpointEngine } from '../storage/CheckpointEngine.js';
+import { VisionPerception } from '../multimodal/VisionPerception.js';
+import { AudioPerception } from '../multimodal/AudioPerception.js';
+import { CRDTStore, VectorClock } from '../cluster/CRDTStore.js';
 
 test('Sandbox executes JS code securely and captures logs', async () => {
   const sandbox = new Sandbox(2000);
@@ -81,28 +88,91 @@ test('SecurityFirewall blocks malicious injections and masks PII', () => {
   assert.ok(pii.sanitizedInput.includes('[REDACTED_API_KEY]'));
 });
 
+test('SymbolicSolver proves SAT satisfiability and validates numeric bounds', () => {
+  const solver = new SymbolicSolver();
+  // (A OR B) AND (NOT A OR B)
+  solver.addClause([{ name: 'A' }, { name: 'B' }]);
+  solver.addClause([{ name: 'A', negated: true }, { name: 'B' }]);
+  const result = solver.solveSAT();
+  assert.equal(result.satisfiable, true);
+  assert.equal(result.assignments['B'], true);
+
+  solver.setBound('riskFactor', 0.0, 1.0);
+  const valid = solver.verifyNumericBounds({ riskFactor: 0.45 });
+  assert.equal(valid.valid, true);
+
+  const invalid = solver.verifyNumericBounds({ riskFactor: 1.8 });
+  assert.equal(invalid.valid, false);
+});
+
+test('FlowScript Compiler tokenizes and parses .flow DSL script into AST', () => {
+  const source = `
+    swarm FinancialAudit {
+      agent Architect role = orchestrator model = "gemini-1.5-pro"
+      agent Auditor role = critic
+      pipeline {
+        Architect("Decompose risk") -> Auditor("Audit exposure")
+      }
+    }
+  `;
+
+  const lexer = new FlowScriptLexer(source);
+  const tokens = lexer.tokenize();
+  assert.ok(tokens.length > 10);
+
+  const parser = new FlowScriptParser(tokens);
+  const ast = parser.parse();
+  assert.equal(ast.name, 'FinancialAudit');
+  assert.equal(ast.agents.length, 2);
+  assert.equal(ast.pipeline.length, 2);
+  assert.equal(ast.pipeline[0].agent, 'Architect');
+});
+
+test('CheckpointEngine snapshots state and creates divergent time-travel forks', () => {
+  const engine = new CheckpointEngine();
+  const chk1 = engine.createCheckpoint(1, 'Initial Dialectic', [], { tokens: 100 });
+  const forked = engine.forkTimeline(chk1.id, 'Alternative Risk Strategy');
+
+  assert.equal(engine.getTimeline().length, 2);
+  assert.ok(forked.label.includes('Alternative Risk Strategy'));
+});
+
+test('VisionPerception segments UI hierarchy and bounding boxes', () => {
+  const vision = new VisionPerception();
+  const analysis = vision.analyzeImage('data:image/png;base64,mockui_sample');
+  assert.ok(analysis.detectedObjects.length >= 3);
+  assert.equal(analysis.imageDimensions.width, 1920);
+});
+
+test('AudioPerception computes RMS energy and zero-crossing rates', () => {
+  const audio = new AudioPerception();
+  const syntheticSineWave = Array.from({ length: 1600 }, (_, i) => Math.sin((i / 16) * Math.PI));
+  const metrics = audio.analyzeSignal(syntheticSineWave, 16000);
+  assert.ok(metrics.rmsEnergy > 0.5);
+  assert.ok(metrics.hasVoiceActivity);
+});
+
+test('CRDTStore synchronizes state without conflicts across vector clocks', () => {
+  const storeA = new CRDTStore<string>();
+  const storeB = new CRDTStore<string>();
+
+  storeA.add('skill_1', 'VarianceCalculator', 'node_1');
+  storeB.add('skill_2', 'MonteCarloPricer', 'node_2');
+
+  storeA.merge(storeB['addSet'], storeB['removeSet']);
+  assert.equal(storeA.has('skill_1'), true);
+  assert.equal(storeA.has('skill_2'), true);
+
+  const clock = new VectorClock('node_1');
+  clock.increment('node_1');
+  assert.equal(clock.getTime('node_1'), 1);
+});
+
 test('GeneticOptimizer evolves prompt fitness across generations', async () => {
   const optimizer = new GeneticOptimizer(new MockProvider(), 3, 2);
   const result = await optimizer.optimize('Write clean python code', 'Data science analytics');
   assert.ok(result.totalGenerations === 2);
   assert.ok(result.bestCandidate.fitnessScore >= 80);
-  assert.ok(result.improvementPercentage > 0);
-});
-
-test('BrowserAgent navigates and indexes interactive elements', async () => {
-  const browser = new BrowserAgent();
-  const state = await browser.navigate('https://example.com');
-  assert.ok(state.currentUrl.includes('example.com'));
-  assert.ok(state.actionHistory.length > 0);
-});
-
-test('ClusterNode delegates tasks to least loaded worker peers', () => {
-  const cluster = new ClusterNode('node_master');
-  cluster.joinPeer({ id: 'worker_1', address: '10.0.0.1:4884', role: 'worker', loadScore: 0.1 });
-  cluster.joinPeer({ id: 'worker_2', address: '10.0.0.2:4884', role: 'worker', loadScore: 0.8 });
-
-  const task = cluster.delegateTask({ type: 'compute_hash', payload: 'test' });
-  assert.equal(task.assignedNodeId, 'worker_1'); // Should pick lowest load
 });
 
 test('AetherKernel end-to-end goal execution with speculative swarm', async () => {

@@ -1,6 +1,6 @@
 /**
  * @aether-flow/core
- * Autonomous Multi-Agent Microkernel & Real-Time Cognitive Engine
+ * Autonomous Multi-Agent Microkernel & Real-Time Cognitive Operating System
  */
 
 export * from './types.js';
@@ -18,6 +18,14 @@ export * from './tools/search/WebSearchEngine.js';
 export * from './consensus/HegelianEngine.js';
 export * from './swarm/SpeculativeEngine.js';
 export * from './reasoning/MCTSEngine.js';
+export * from './formal/SymbolicSolver.js';
+export * from './compiler/Lexer.js';
+export * from './compiler/Parser.js';
+export * from './compiler/Interpreter.js';
+export * from './storage/CheckpointEngine.js';
+export * from './multimodal/VisionPerception.js';
+export * from './multimodal/AudioPerception.js';
+export * from './cluster/CRDTStore.js';
 export * from './memory/VectorMemory.js';
 export * from './memory/KnowledgeGraph.js';
 export * from './memory/SkillRegistry.js';

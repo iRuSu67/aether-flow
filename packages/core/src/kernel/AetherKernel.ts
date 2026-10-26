@@ -3,20 +3,26 @@ import { CriticAgent } from '../agents/CriticAgent.js';
 import { ExecutorAgent } from '../agents/ExecutorAgent.js';
 import { SynthesizerAgent } from '../agents/SynthesizerAgent.js';
 import { ClusterNode } from '../cluster/ClusterNode.js';
+import { CRDTStore, VectorClock } from '../cluster/CRDTStore.js';
+import { FlowScriptInterpreter, ScriptExecutionResult } from '../compiler/Interpreter.js';
 import { BrowserAgent } from '../computer/BrowserAgent.js';
 import { HegelianEngine } from '../consensus/HegelianEngine.js';
 import { ArenaJudge } from '../evaluation/ArenaJudge.js';
 import { GeneticOptimizer } from '../evolution/GeneticOptimizer.js';
+import { SymbolicSolver } from '../formal/SymbolicSolver.js';
 import { SecurityFirewall } from '../guardrails/SecurityFirewall.js';
 import { KnowledgeGraph } from '../memory/KnowledgeGraph.js';
 import { SkillRegistry } from '../memory/SkillRegistry.js';
 import { VectorMemory } from '../memory/VectorMemory.js';
 import { MCPHub } from '../mcp/MCPHub.js';
+import { AudioPerception } from '../multimodal/AudioPerception.js';
+import { VisionPerception } from '../multimodal/VisionPerception.js';
 import { GeminiProvider } from '../providers/GeminiProvider.js';
 import { MockProvider } from '../providers/MockProvider.js';
 import { ModelProvider } from '../providers/ModelProvider.js';
 import { OpenAIProvider } from '../providers/OpenAIProvider.js';
 import { MCTSEngine, MCTSResult } from '../reasoning/MCTSEngine.js';
+import { CheckpointEngine, SwarmCheckpoint } from '../storage/CheckpointEngine.js';
 import { SpeculativeEngine, SpeculativeResult } from '../swarm/SpeculativeEngine.js';
 import { TelemetryServer } from '../telemetry/WebSocketServer.js';
 import { ASTVerifier } from '../tools/ASTVerifier.js';
@@ -75,6 +81,15 @@ export class AetherKernel {
   public astVerifier: ASTVerifier;
   public arena: ArenaJudge;
 
+  // Formal Logic, DSL Compiler, Time-Travel & Multi-Modal
+  public solver: SymbolicSolver;
+  public flowInterpreter: FlowScriptInterpreter;
+  public checkpoints: CheckpointEngine;
+  public vision: VisionPerception;
+  public audio: AudioPerception;
+  public crdt: CRDTStore<Record<string, unknown>>;
+  public clock: VectorClock;
+
   // Swarm Agents
   public architect: ArchitectAgent;
   public critic: CriticAgent;
@@ -122,7 +137,16 @@ export class AetherKernel {
     this.astVerifier = new ASTVerifier();
     this.arena = new ArenaJudge();
 
-    // 5. Initialize Execution Tooling & Sandbox
+    // 5. Initialize Formal Verification, FlowScript & Multi-Modal
+    this.solver = new SymbolicSolver();
+    this.flowInterpreter = new FlowScriptInterpreter(this);
+    this.checkpoints = new CheckpointEngine();
+    this.vision = new VisionPerception();
+    this.audio = new AudioPerception();
+    this.crdt = new CRDTStore<Record<string, unknown>>();
+    this.clock = new VectorClock('kernel_local');
+
+    // 6. Initialize Execution Tooling & Sandbox
     this.sandbox = new Sandbox(this.config.sandboxTimeoutMs);
     this.forge = new ToolForge(this.provider, this.registry, this.sandbox, this.bus);
 
@@ -155,6 +179,25 @@ export class AetherKernel {
    */
   async searchMCTS(objective: string): Promise<MCTSResult> {
     return await this.mcts.search(objective);
+  }
+
+  /**
+   * Compile and execute declarative FlowScript pipeline (.flow)
+   */
+  async compileFlowScript(source: string, initialContext?: string): Promise<ScriptExecutionResult> {
+    return await this.flowInterpreter.executeScript(source, initialContext);
+  }
+
+  /**
+   * Snapshot cognitive state for time-travel debugging and rollback
+   */
+  createCheckpoint(label: string): SwarmCheckpoint {
+    return this.checkpoints.createCheckpoint(
+      this.checkpoints.getTimeline().length + 1,
+      label,
+      this.bus.getHistory(),
+      { memoryCount: this.memory.size(), graphNodes: this.graph.toJSON().nodeCount }
+    );
   }
 
   private registerFrontierTools(): void {

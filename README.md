@@ -248,6 +248,8 @@ print(f"Latency: {result.execution_time_ms}ms")
 | `examples/06-tree-of-thoughts-mcts` | Monte Carlo Tree Search non-linear reasoning | `node examples/06-tree-of-thoughts-mcts/index.js` |
 | `examples/07-voyager-continuous-learning`| Continuous Skill Library self-learning | `node examples/07-voyager-continuous-learning/index.js` |
 | `examples/08-llm-arena-evaluation` | Multi-model arena & live Elo ranking | `node examples/08-llm-arena-evaluation/index.js` |
+| `examples/09-flowscript-compiler` | FlowScript (.flow) declarative DSL compilation | `node examples/09-flowscript-compiler/index.js` |
+| `examples/10-symbolic-sat-verification`| First-order DPLL SAT solver & formal proofs | `node examples/10-symbolic-sat-verification/index.js` |
 
 ---
 
