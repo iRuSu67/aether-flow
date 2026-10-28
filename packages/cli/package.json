@@ -8,6 +8,8 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit",
     "start": "node ./dist/bin.js"
   },
   "dependencies": {

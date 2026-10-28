@@ -20,6 +20,7 @@ export interface EvolutionResult {
 }
 
 /**
+ * @experimental Stub implementation - prototype not yet verified for production use.
  * GeneticOptimizer
  * DSPy-style autonomous agent prompt & strategy self-evolution engine.
  * Evolves system instructions across generations using mutation, crossover, and fitness scoring.

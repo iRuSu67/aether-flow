@@ -1,4 +1,5 @@
 /**
+ * @experimental Stub implementation - prototype not yet verified for production use.
  * VisionPerception
  * Multi-modal visual perception engine for screenshot inspection,
  * visual bounding box detection, and UI element segmentation.

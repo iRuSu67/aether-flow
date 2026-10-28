@@ -9,6 +9,11 @@ export interface VoiceFrame {
   timestamp: number;
 }
 
+/**
+ * @experimental Stub implementation - prototype not yet verified for production use.
+ * VoiceKernel
+ * Telemetry and frame handling for simulated voice interaction streams.
+ */
 export class VoiceKernel {
   private bus: CognitiveBus;
   private isListening = false;

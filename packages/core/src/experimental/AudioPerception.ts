@@ -1,4 +1,5 @@
 /**
+ * @experimental Stub implementation - prototype not yet verified for production use.
  * AudioPerception
  * Multi-modal audio & speech activity detection (VAD),
  * zero-crossing rate computation, and signal energy analysis.

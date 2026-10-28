@@ -20,6 +20,11 @@ export interface MatchResult {
   verdictExplanation: string;
 }
 
+/**
+ * @experimental Stub implementation - prototype not yet verified for production use.
+ * ArenaJudge
+ * Multi-model competitive evaluation and Elo ranking harness.
+ */
 export class ArenaJudge {
   private leaderboard: Map<string, ModelCompetitor> = new Map();
   private matchHistory: MatchResult[] = [];

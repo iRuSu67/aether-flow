@@ -1,8 +1,11 @@
 /**
  * SymbolicSolver & First-Order Logic Engine
- * Pure TypeScript SAT solver and linear arithmetic constraint verifier.
- * Allows agents to formally prove correctness, non-nullability, and boundary invariants
- * on synthesized tools before production execution.
+ * Pure TypeScript Backtracking SAT Solver and Numeric Constraint Verifier.
+ *
+ * NOTE ON ALGORITHM:
+ * This solver implements complete recursive backtracking search over finite propositional models.
+ * It does NOT currently perform unit propagation or pure-literal elimination (DPLL).
+ * It is a sound and complete backtracking SAT solver suitable for small-to-moderate propositional constraints.
  */
 
 export type LogicTerm = string | number | boolean;
@@ -52,7 +55,8 @@ export class SymbolicSolver {
   }
 
   /**
-   * DPLL (Davis-Putnam-Logemann-Loveland) SAT solving algorithm
+   * Complete recursive backtracking SAT solving algorithm over CNF clauses.
+   * Explores binary truth assignments with early conflict pruning.
    */
   public solveSAT(): ConstraintCheckResult {
     const assignments: Record<string, boolean> = {};

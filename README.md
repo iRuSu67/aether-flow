@@ -7,176 +7,54 @@
 /_/  /_/ /_/\__/_/ /_/\___/_/  /_/  /_/\___/ |/ |/        
 ```
 
-# AetherFlow
+# AetherFlow v0.1
 
-### The Autonomous Multi-Agent Microkernel & Cognitive Operating System
-**JIT Tool Synthesis • Model Context Protocol (MCP) • Hegelian Consensus • Computer Use • GraphRAG • Self-Evolving Prompts**
+### Verified Sandbox + Dynamic Tool Synthesis Loop for LLM-Generated Code
+**Fail-Closed Container Isolation • Static AST Verification • JIT Tool Synthesis • Defense-in-Depth**
 
 [![CI Status](https://img.shields.io/badge/build-passing-brightgreen?style=for-the-badge&logo=github-actions)](https://github.com/iRuSu67/aether-flow/actions)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=for-the-badge)](https://opensource.org/licenses/Apache-2.0)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
-[![Python](https://img.shields.io/badge/Python-3.9+-3776AB?style=for-the-badge&logo=python)](https://www.python.org/)
-[![MCP](https://img.shields.io/badge/MCP-Native_Client_%26_Hub-purple?style=for-the-badge)](https://modelcontextprotocol.io/)
-[![Security](https://img.shields.io/badge/Security-Firewall_Active-success?style=for-the-badge)](https://github.com/iRuSu67/aether-flow)
-[![Stars](https://img.shields.io/github/stars/iRuSu67/aether-flow?style=for-the-badge&color=gold)](https://github.com/iRuSu67/aether-flow)
+[![Docker](https://img.shields.io/badge/Docker-Isolated_Container-2496ED?style=for-the-badge&logo=docker)](SECURITY.md)
+[![Security](https://img.shields.io/badge/Security-Fail--Closed_Hardened-success?style=for-the-badge)](SECURITY.md)
 
 <p align="center">
-  <a href="#-quickstart-in-60-seconds">Quickstart</a> •
-  <a href="#-key-frontiers">Key Frontiers</a> •
-  <a href="#-feature-matrix">Comparison Matrix</a> •
-  <a href="#-rigorous-benchmarks">Benchmarks</a> •
-  <a href="#-python-sdk">Python SDK</a> •
-  <a href="#-visual-cognitive-studio">Visual Studio</a> •
-  <a href="#-showcase-examples">Showcases</a> •
-  <a href="docs/ARCHITECTURE.md">Docs</a>
+  <a href="#-overview">Overview</a> •
+  <a href="#-quickstart">Quickstart</a> •
+  <a href="#-security--sandbox-architecture">Security & Sandbox</a> •
+  <a href="#-test-suite--mutation-verification">Verification & Tests</a> •
+  <a href="#-performance--cold-start-latency">Performance</a> •
+  <a href="#-frozen-v01-scope--experimental-status">v0.1 Scope & Experimental</a> •
+  <a href="SECURITY.md">Security Threat Model</a>
 </p>
 
 ---
 
 </div>
 
-## 🌌 What is AetherFlow?
+## 🌌 Overview
 
-**AetherFlow** is an open-source, ultra-high-throughput autonomous multi-agent microkernel and cognitive operating system designed for mission-critical enterprise workflows.
+**AetherFlow** is an open-source TypeScript runtime focused on a singular, hardened mission: **a verified sandbox + tool-synthesis loop for LLM-generated code**.
 
-While legacy agent frameworks force developers into static DAG execution graphs and rigid pre-configured toolsets, AetherFlow introduces a dynamic, self-evolving runtime:
+When language models synthesize executable code at runtime to solve computational or analytical tasks, executing that code natively presents severe security risks (arbitrary remote code execution, prototype poisoning, network exfiltration, fork bombs, and host resource starvation). AetherFlow solves this with a **fail-closed, defense-in-depth architecture** that inspects, compiles, verifies, and executes LLM-generated tools within strictly hardened Docker containers or sandboxed subprocesses.
 
-* 🛠️ **Just-In-Time (JIT) Tool Synthesis**: When agents hit an unknown capability, they dynamically write, sandbox-verify in `node:vm`, and register custom typed tools in real time.
-* 🔌 **Native Model Context Protocol (MCP)**: Attach any official or third-party MCP server (PostgreSQL, Filesystem, GitHub, Brave Search, Puppeteer, Slack) in one line.
-* ⚖️ **Hegelian Consensus Swarms**: Adversarial multi-agent debate (**Thesis** $\rightarrow$ **Antithesis** $\rightarrow$ **Synthesis**) that eliminates hallucination cascades before execution.
-* 🌲 **Speculative Swarm Reasoning**: Explores $N$ parallel candidate thought trajectories concurrently, scores them via an Adversarial Critic, and prunes failing branches early.
-* 🖥️ **Computer Use & Browser Automation**: Autonomous virtual DOM parsing, element interaction indexing (click, fill, navigate), and web automation.
-* 🧬 **DSPy-Style Genetic Prompt Optimization**: Self-evolving prompts and agent instructions that mutate, crossover, and improve fitness scores across generations.
-* 🛡️ **Enterprise Security Firewall & Guardrails**: Real-time prompt injection detector, jailbreak shield, PII masking, and token budget governance.
-* 🧠 **Neural Vector Memory & GraphRAG**: In-memory cosine-similarity vector embeddings (>55,000 vectors/sec) paired with an entity-relational knowledge graph and BFS pathfinding.
-* 🌐 **Autonomous Live Web Search & Scraping**: Zero-key public web discovery, article cleaning, and citation extraction natively built in.
-* 🎙️ **Real-Time Voice Kernel**: Voice frame event stream and speech synthesis telemetry for natural voice interactions.
-* 🐍 **Cross-Language Ecosystem**: Native TypeScript / Node.js core with a first-class **Python SDK** (`pip install aetherflow`).
+### Core Capabilities
+
+* 🛠️ **Dynamic Tool Synthesis (`ToolForge`)**: Autonomous JIT tool synthesis loop: model code generation $\rightarrow$ AST verification $\rightarrow$ sandboxed execution verification $\rightarrow$ live `ToolRegistry` registration.
+* 🐳 **Fail-Closed Docker Sandboxing (`Sandbox`)**: Default execution mode enforces container-level isolation with zero host network access, read-only root filesystem, dropped Linux capabilities, non-root user, cgroups memory & pids limits, and asynchronous timeout cleanup.
+* 🛡️ **Static AST Pre-Verification (`ASTVerifier`)**: TypeScript Compiler API AST analysis rejecting forbidden identifiers (`process`, `eval`, `Function`), prototype tampering (`__proto__`, `.constructor`), and static infinite loops before code ever reaches an execution environment.
+* 🔒 **Isolated Realm & Context Lockdown**: Sandboxed execution runs in an isolated VM context without host prototype contamination. Context globals omit host standard prototypes (`Object`, `Array`, `JSON`), preventing host prototype poisoning attacks.
+* 🧬 **Real Mutation Defense Testing**: Automated mutation verification runner (`scripts/verify_mutations.js`) systematically disables each defensive layer and proves that the test suite catches the vulnerability with real test failures.
 
 ---
 
-## ⚡ Feature Matrix
+## 🚀 Quickstart
 
-| Capability | AetherFlow | LangGraph | CrewAI | AutoGen |
-| :--- | :---: | :---: | :---: | :---: |
-| **Just-In-Time (JIT) Tool Synthesis** | 🟢 **Native Sandbox** | 🔴 No | 🔴 No | 🔴 No |
-| **Model Context Protocol (MCP)** | 🟢 **Native Client + Hub** | 🟡 Wrapper | 🔴 No | 🔴 No |
-| **Computer Use & Browser Agent** | 🟢 **Built-in DOM Engine** | 🔴 No | 🔴 No | 🟡 External |
-| **Genetic Self-Evolution (DSPy)** | 🟢 **Automated Pareto** | 🔴 No | 🔴 No | 🔴 No |
-| **Security Firewall & PII Masking** | 🟢 **Active Guardrails** | 🔴 No | 🔴 No | 🔴 No |
-| **Speculative Swarm Pruning** | 🟢 **Concurrent Trees** | 🔴 No | 🔴 No | 🔴 No |
-| **Hegelian Adversarial Debate** | 🟢 **Automated Dialectic**| 🟡 Manual DAG | 🔴 No | 🟡 Conversational |
-| **GraphRAG & Vector Memory** | 🟢 **Built-in Triples** | 🟡 External DB | 🟡 External DB | 🟡 External DB |
-| **Autonomous Web Search** | 🟢 **Zero-Key Native** | 🟡 Paid API Key | 🟡 Paid API Key | 🟡 External |
-| **Zero-Key Offline Simulation Mode** | 🟢 **Yes** | 🔴 No | 🔴 No | 🔴 No |
-| **Multi-Language (TS + Python)** | 🟢 **First-Class** | 🟢 Yes | 🟡 Python only | 🟢 Yes |
-| **Microkernel Event Bus** | 🟢 **Sub-millisecond** | 🔴 Heavy | 🔴 Heavy | 🔴 Medium |
+### 1. Prerequisites
+- **Node.js**: $\ge$ 20.0.0
+- **Docker**: Docker Engine / Docker Desktop (required for default production sandbox mode)
 
----
-
-## 🏗️ Architecture
-
-```
-                                 ┌────────────────────────────────┐
-                                 │       User Goal Dispatch       │
-                                 └───────────────┬────────────────┘
-                                                 │
-                                                 ▼
-                        ┌─────────────────────────────────────────────────┐
-                        │          Security Firewall & Guardrails         │
-                        │  (Injection Shield, PII Masking, Token Budget)  │
-                        └────────────────────────┬────────────────────────┘
-                                                 │
-                                                 ▼
-                        ┌─────────────────────────────────────────────────┐
-                        │              Cognitive Event Bus                │
-                        │    (Trace Log, Telemetry Stream, Checkpoints)   │
-                        └───────┬─────────────────┬─────────────────┬─────┘
-                                │                 │                 │
-                ┌───────────────┘                 │                 └────────────────┐
-                ▼                                 ▼                                  ▼
-      ┌───────────────────┐             ┌───────────────────┐              ┌───────────────────┐
-      │  Vector Memory &  │             │   Model Context   │              │  Computer Use &   │
-      │ GraphRAG Triples  │             │  Protocol (MCP)   │              │   Browser Agent   │
-      └───────────────────┘             └───────────────────┘              └───────────────────┘
-                │                                 │                                  │
-                └─────────────────────────┬───────┴──────────────────────────────────┘
-                                          │
-                                          ▼
-                        ┌───────────────────────────────────┐
-                        │     Speculative Swarm Engine      │
-                        │  Branch 1   •   Branch 2 (Pruned) │
-                        │  Branch 3 (Winning Trajectory)    │
-                        └─────────────────┬─────────────────┘
-                                          │
-                                          ▼
-                        ┌───────────────────────────────────┐
-                        │    Hegelian Dialectic Swarm       │
-                        │ Thesis  ──> Antithesis  ──> Synth │
-                        └─────────────────┬─────────────────┘
-                                          │
-                                          ▼
-                        ┌───────────────────────────────────┐
-                        │        ToolForge Sandbox          │
-                        │ • JIT TypeScript Generation       │
-                        │ • Safe Node:vm Isolation          │
-                        │ • Self-Healing AST Retry Loop     │
-                        └─────────────────┬─────────────────┘
-                                          │
-                                          ▼
-                        ┌───────────────────────────────────┐
-                        │    WebSocket Studio & Terminal    │
-                        │  ws://localhost:4884 / UI :3000   │
-                        └───────────────────────────────────┘
-```
-
----
-
-## 📊 Rigorous Benchmarks
-
-Run the benchmark suite locally with `npm run benchmark`:
-
-```text
-================================================================
-       ⚡ AETHERFLOW RIGOROUS PERFORMANCE BENCHMARK SUITE       
-================================================================
-
-▶ [Benchmark 1/6] Neural Vector Memory (Embedding & Semantic Retrieval)...
-  ✔ Inserted 500 vectors in 8.61ms (58,097 vectors/sec)
-  ✔ Top-5 Nearest Neighbor Query in 4.083ms (Precision: 100%)
-
-▶ [Benchmark 2/6] GraphRAG Entity Traversal & BFS Pathfinding...
-  ✔ Traverse 50-hop relational path in 1.949ms (Path length: 51 hops)
-
-▶ [Benchmark 3/6] Security Firewall & Injection Sanitization Latency...
-  ✔ Audited & Sanitized 1,000 adversarial payloads in 13.15ms (76,039 audits/sec)
-
-▶ [Benchmark 4/6] DSPy-Style Genetic Prompt Optimization Engine...
-  ✔ Evolved across 3 generations in 0.83ms (Fitness: 100.9/100, +8.7% improvement)
-
-▶ [Benchmark 5/6] JIT Tool Synthesis & Sandboxed VM Execution...
-  ✔ Synthesis & AST Verification in 2.91ms (Iterations: 1)
-  ✔ Fortified Sandbox Execution in 1.943ms (Zero Host Leakage)
-
-▶ [Benchmark 6/6] Speculative Multi-Agent Trajectory Pruning...
-  ✔ Evaluated 3 concurrent speculative trajectories in 0.70ms
-  ✔ Winning Branch: branch_3 (Critic Score: 98/100)
-  ✔ Pruned Branches: 2
-
-================================================================
-                 🏆 ALL BENCHMARKS COMPLETED                    
-       Memory Throughput:    > 50,000 vectors/sec               
-       Firewall Throughput:  > 75,000 checks/sec                
-       Sandbox Isolation:    100% Secure Node:vm Context        
-       Consensus Latency:    < 60ms Average                     
-================================================================
-```
-
----
-
-## 🚀 Quickstart in 60 Seconds
-
-### 1. Installation
+### 2. Installation & Build
 
 ```bash
 git clone https://github.com/iRuSu67/aether-flow.git
@@ -185,7 +63,23 @@ npm install
 npm run build
 ```
 
-### 2. Run the End-to-End Demo (No API Key Required)
+### 3. Run the Verified Test Suite (57 Tests)
+
+```bash
+npm test
+```
+
+### 4. Run the Mutation Defense Verification Suite
+
+```bash
+# Verify all 7 Docker containment layers
+node scripts/verify_mutations.js --mode=docker
+
+# Verify all 6 Subprocess containment layers
+node scripts/verify_mutations.js --mode=subprocess
+```
+
+### 5. Run the End-to-End Quickstart Demo
 
 ```bash
 npm run demo
@@ -193,68 +87,167 @@ npm run demo
 
 ---
 
-## 🎨 Visual Cognitive Studio
+## 🛡️ Security & Sandbox Architecture
 
-Launch the multi-tab studio dashboard:
+AetherFlow operates on a **fail-closed** security contract:
+- The **default and production sandbox mode is `docker`**.
+- Subprocess execution without Docker is considered strictly insecure development mode and requires explicit opt-in (`unsafeDevMode: true`); attempting to run subprocess mode without this flag throws an immediate fatal error and logs a loud security warning.
 
-```bash
-npm run start:canvas
+```
+                  ┌──────────────────────────────────────────────┐
+                  │          LLM-Synthesized Code Payload        │
+                  └──────────────────────┬───────────────────────┘
+                                         │
+                                         ▼
+ ┌─────────────────────────────────────────────────────────────────────────────┐
+ │ Layer 1: Static AST Analysis (ASTVerifier)                                  │
+ │   • Rejects eval, Function, import, require, process, __proto__             │
+ │   • Rejects computed string concat/template literal constructor access      │
+ └───────────────────────────────────────┬─────────────────────────────────────┘
+                                         │
+                                         ▼
+ ┌─────────────────────────────────────────────────────────────────────────────┐
+ │ Layer 2: Isolated VM Realm & Memory Budget                                  │
+ │   • Context globals omit host prototypes (Object, Array, JSON, etc.)        │
+ │   • V8 flag: --disallow-code-generation-from-strings                       │
+ │   • Strict serialized input/output byte caps (maxOutputBytes)              │
+ └───────────────────────────────────────┬─────────────────────────────────────┘
+                                         │
+                                         ▼
+ ┌─────────────────────────────────────────────────────────────────────────────┐
+ │ Layer 3: OS Container Boundary (Docker Mode - Default)                      │
+ │   • --network none                 (Complete zero-trust network airgap)    │
+ │   • --read-only                    (Read-only root container filesystem)   │
+ │   • --user 1000:1000               (Non-root user: uid 1000, gid 1000)      │
+ │   • --cap-drop=ALL                 (Drop all Linux capabilities)           │
+ │   • --security-opt no-new-privileges (Prevent setuid escalation)            │
+ │   • --pids-limit=64                (Fork-bomb process containment)         │
+ │   • --memory=64m --memory-swap=64m (cgroups hard OOM kill enforcement)     │
+ │   • Image pinned by SHA256 digest  (node:lts-alpine@sha256:06d7adf3e...)   │
+ └───────────────────────────────────────┬─────────────────────────────────────┘
+                                         │
+                                         ▼
+ ┌─────────────────────────────────────────────────────────────────────────────┐
+ │ Layer 4: Authoritative Asynchronous Lifecycle Management                    │
+ │   • Hard host timer terminates runaway executions                          │
+ │   • Async container cleanup: docker rm -f <container> without event block  │
+ │   • Host-side streaming stdout/stderr caps terminate output flood attacks  │
+ └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-Open **`http://localhost:3000`** in your browser to inspect:
-1. **Swarm & Stream**: Live node graph with streaming debate tokens and consensus gauge.
-2. **Knowledge Graph Explorer**: Dynamic interactive SVG graph rendering GraphRAG entity relationships.
-3. **Speculative Tree Visualizer**: Real-time parallel trajectory pruning and scoring.
-4. **JIT Tool Sandbox**: Synthesize, inspect, and test sandboxed code live in the browser.
+See [SECURITY.md](SECURITY.md) for the exhaustive threat model, attack vectors, and proof benchmarks.
 
 ---
 
-## 🐍 Python SDK
+## ⏱️ Performance & Cold-Start Latency
 
-AetherFlow provides first-class Python bindings:
+> [!NOTE]
+> **Docker Mode Cold-Start Overhead**:
+> In default `docker` mode, spinning up an ephemeral container on Windows (WSL2) or Linux imposes a baseline cold-start latency of approximately **~1,000ms – 1,500ms** per execution.
+> This overhead stems from container creation, namespace isolation, and Node runtime initialization within the container.
+>
+> **Future Work**: Implementation of a pre-warmed container pool to reduce execution latency to <50ms while preserving complete single-execution tenant isolation.
 
-```bash
-pip install -e packages/python-sdk
-```
+Benchmark measurements (`npm run benchmark`):
 
-```python
-from aetherflow import AetherFlowClient
-
-# Connect to the local AetherFlow microkernel
-client = AetherFlowClient(host="http://localhost:3000")
-
-# Dispatch complex reasoning goal
-result = client.dispatch(
-    goal="Synthesize high-frequency arbitrage risk model and calculate volatility metrics",
-    context={"ticker": "BTC/USD", "timeframe": "1h"}
-)
-
-print(f"Consensus Confidence: {result.confidence_score * 100}%")
-print(f"Synthesized Tools: {result.synthesized_tools}")
-print(f"Latency: {result.execution_time_ms}ms")
-```
-
----
-
-## 📚 Showcase Examples
-
-| Directory | Description | Run Command |
+| Operation | Environment | Measured Latency / Throughput |
 | :--- | :--- | :--- |
-| `examples/01-autonomous-researcher` | Multi-agent technical research & zk-SNARK study | `node examples/01-autonomous-researcher/index.js` |
-| `examples/02-jit-tool-synthesis` | Dynamic math & variance JIT tool creation | `node examples/02-jit-tool-synthesis/index.js` |
-| `examples/03-financial-forecasting` | Financial momentum forecasting swarm | `node examples/03-financial-forecasting/index.js` |
-| `examples/04-self-evolving-agents` | DSPy-style genetic prompt evolution | `node examples/04-self-evolving-agents/index.js` |
-| `examples/05-autonomous-computer-use`| DOM parsing & browser action execution | `node examples/05-autonomous-computer-use/index.js` |
-| `examples/06-tree-of-thoughts-mcts` | Monte Carlo Tree Search non-linear reasoning | `node examples/06-tree-of-thoughts-mcts/index.js` |
-| `examples/07-voyager-continuous-learning`| Continuous Skill Library self-learning | `node examples/07-voyager-continuous-learning/index.js` |
-| `examples/08-llm-arena-evaluation` | Multi-model arena & live Elo ranking | `node examples/08-llm-arena-evaluation/index.js` |
-| `examples/09-flowscript-compiler` | FlowScript (.flow) declarative DSL compilation | `node examples/09-flowscript-compiler/index.js` |
-| `examples/10-symbolic-sat-verification`| First-order DPLL SAT solver & formal proofs | `node examples/10-symbolic-sat-verification/index.js` |
+| **Vector Memory Insert** | In-Memory Cosine Store | ~31,000+ vectors/sec |
+| **Vector Memory Query (Top-5)** | In-Memory Cosine Store | ~2.9 ms |
+| **GraphRAG Pathfinding (50 Hops)** | In-Memory BFS Multigraph | ~1.2 ms |
+| **Firewall Injection Audit** | Heuristic Lexer | ~65,000+ audits/sec |
+| **Tool AST Verification** | TypeScript AST Compiler API | ~25 ms |
+| **Sandboxed Tool Execution** | Docker Container (`--network none`) | ~1,340 ms (cold-start) |
+
+---
+
+## 🧪 Test Suite & Mutation Verification
+
+The test suite consists of **57 verified automated tests**:
+* **10 Microkernel Tests** (`kernel.test.ts`):
+  - End-to-end plan generation and JIT tool synthesis via `ToolForge`.
+  - Tool execution via `ToolRegistry`.
+  - Vector memory embedding and nearest-neighbor search.
+  - Relational graph BFS pathfinding.
+  - Security firewall PII redaction and injection blocking.
+  - Symbolic SAT satisfiability and numerical boundary verification.
+  - FlowScript DSL lexer and AST parser.
+  - Checkpoint state snapshotting and divergence forking.
+* **47 Sandbox Escape & Containment Tests** (`sandbox-escape.test.ts`):
+  - 7 static AST syntax checks.
+  - 2 known AST bypasses proving runtime containment.
+  - 1 fail-closed configuration contract test.
+  - 26 parameterized adversarial attack tests evaluated across both `subprocess` and `docker` modes:
+    - Prototype constructor chain breakouts (`Function('return process')()`).
+    - Arguments constructor breakout (`args.constructor.constructor`).
+    - Dynamic code evaluation (`eval()`).
+    - Environment leakage (`process.env`).
+    - Host secret exfiltration attempts.
+    - Filesystem access (`require('fs')`).
+    - Outbound network requests (`fetch()`, `net.connect()`).
+    - Node internals access (`process.binding()`).
+    - Console output flooding attacks.
+    - Serialized payload memory explosion.
+    - Synchronous CPU infinite loops (`while(true)`).
+    - Asynchronous microtask infinite loops.
+    - Heap exhaustion memory bombs.
+  - 1 VM realm prototype isolation verification.
+  - 2 Docker network isolation tests (active TCP listener probe + control probe).
+  - 5 Docker container probes (non-root uid, read-only rootfs, 0 capabilities, pids limit, cgroups memory limit).
+  - 1 Docker host-side stderr flooding test.
+  - 1 Post-timeout container cleanup test (`docker ps -a` check).
+  - 1 ArrayBuffer memory bomb analysis (verifying cgroups OOM kill vs. execution timeout).
+
+### Real Mutation Defense Verification
+
+AetherFlow includes a dedicated mutation verification runner (`scripts/verify_mutations.js`) that directly modifies source files, recompiles, and runs the adversarial test suite to prove each layer catches attacks:
+
+* **Docker Mode (7 Layers)**:
+  1. Network isolation (`--network none` removed) $\rightarrow$ Caught by `Docker network isolation Test 1`.
+  2. Non-root user (`--user` removed) $\rightarrow$ Caught by `Docker probe: container runs as non-root user node`.
+  3. Read-only filesystem (`--read-only` removed) $\rightarrow$ Caught by `Docker probe: container filesystem is strictly read-only`.
+  4. Capability dropping (`--cap-drop=ALL` removed) $\rightarrow$ Caught by `Docker probe: container Linux capabilities are dropped`.
+  5. Process limit (`--pids-limit=64` removed) $\rightarrow$ Caught by `Docker probe: container pids limit is enforced`.
+  6. Memory limit (`--memory` & `--memory-swap` removed) $\rightarrow$ Caught by `Docker probe: container memory limit is enforced` and `ArrayBuffer memory bomb analysis`.
+  7. Host-side stderr flood cap removed $\rightarrow$ Caught by `[docker] Sandbox output caps...` and `Docker mode host-side stderr flooding...`.
+
+* **Subprocess Mode (6 Layers)**:
+  1. AST Verifier bypass $\rightarrow$ Caught by 7 AST verification tests.
+  2. VM Context globals leakage (`require`/`fetch` exposed) $\rightarrow$ Caught by filesystem and network tests.
+  3. V8 string compilation disallowance removed $\rightarrow$ Caught by 4 prototype breakout and AST bypass tests.
+  4. Environment stripping disabled (`env: process.env`) $\rightarrow$ Caught by `Sandbox strips host environment variables`.
+  5. Authoritative timeout kill disabled $\rightarrow$ Caught by `Sandbox hard timeout terminates asynchronous microtask loop`.
+  6. Output byte caps disabled $\rightarrow$ Caught by output flooding and max result size tests.
+
+---
+
+## 📦 Frozen v0.1 Scope & Experimental Status
+
+In v0.1, the core architecture is **strictly frozen** to the verified sandbox and tool-synthesis loop. Non-core exploratory prototypes have been moved to `packages/core/src/experimental/` and decoupled from `AetherKernel`:
+
+| Subsystem | Status in v0.1 | Location |
+| :--- | :---: | :--- |
+| **Sandbox Execution (`Sandbox`)** | 🟢 **Core v0.1** | `packages/core/src/tools/Sandbox.ts` |
+| **JIT Tool Synthesis (`ToolForge`)** | 🟢 **Core v0.1** | `packages/core/src/tools/ToolForge.ts` |
+| **AST Verification (`ASTVerifier`)** | 🟢 **Core v0.1** | `packages/core/src/tools/ASTVerifier.ts` |
+| **Aether Microkernel (`AetherKernel`)** | 🟢 **Core v0.1** | `packages/core/src/kernel/AetherKernel.ts` |
+| **Model Providers (`Mock`, `Gemini`, `OpenAI`)** | 🟢 **Core v0.1** | `packages/core/src/providers/` |
+| **Vector Memory & Knowledge Graph** | 🟢 **Core v0.1** | `packages/core/src/memory/` |
+| **Security Firewall & SAT Solver** | 🟢 **Core v0.1** | `packages/core/src/guardrails/`, `formal/` |
+| **Browser Agent (`BrowserAgent`)** | 🟡 **Quarantined** | `packages/core/src/experimental/BrowserAgent.ts` |
+| **Vision Perception (`VisionPerception`)** | 🟡 **Quarantined** | `packages/core/src/experimental/VisionPerception.ts` |
+| **Audio Perception (`AudioPerception`)** | 🟡 **Quarantined** | `packages/core/src/experimental/AudioPerception.ts` |
+| **Voice Kernel (`VoiceKernel`)** | 🟡 **Quarantined** | `packages/core/src/experimental/VoiceKernel.ts` |
+| **Cluster Node (`ClusterNode`)** | 🟡 **Quarantined** | `packages/core/src/experimental/ClusterNode.ts` |
+| **CRDT Store (`CRDTStore`)** | 🟡 **Quarantined** | `packages/core/src/experimental/CRDTStore.ts` |
+| **Genetic Optimizer (`GeneticOptimizer`)** | 🟡 **Quarantined** | `packages/core/src/experimental/GeneticOptimizer.ts` |
+| **Arena Judge (`ArenaJudge`)** | 🟡 **Quarantined** | `packages/core/src/experimental/ArenaJudge.ts` |
+| **MCTS Reasoning (`MCTSEngine`)** | 🟡 **Quarantined** | `packages/core/src/experimental/MCTSEngine.ts` |
+| **Speculative Swarm (`SpeculativeEngine`)** | 🟡 **Quarantined** | `packages/core/src/experimental/SpeculativeEngine.ts` |
+| **Hegelian Consensus (`HegelianEngine`)** | 🟡 **Quarantined** | `packages/core/src/experimental/HegelianEngine.ts` |
 
 ---
 
 ## 📄 License
 
 Distributed under the **Apache-2.0 License**. See [LICENSE](LICENSE) for details.
-
-Made with 🌌 by [iRuSu67](https://github.com/iRuSu67) and the open source community.

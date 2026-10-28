@@ -103,6 +103,8 @@ export interface KernelConfig {
   maxDialecticRounds?: number;
   enableJitTools?: boolean;
   sandboxTimeoutMs?: number;
+  sandboxMode?: 'docker' | 'subprocess';
+  unsafeDevMode?: boolean;
   telemetryPort?: number;
   provider?: 'mock' | 'gemini' | 'openai' | 'ollama';
   apiKey?: string;

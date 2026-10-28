@@ -15,8 +15,9 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present",
+    "typecheck": "tsc --noEmit",
     "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
     "start:canvas": "npm --workspace=@aether-flow/web run dev",
     "cli": "node packages/cli/dist/bin.js",
     "demo": "node packages/core/dist/examples/quickstart.js",

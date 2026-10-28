@@ -1,4 +1,5 @@
 /**
+ * @experimental Stub implementation - prototype not yet verified for production use.
  * ClusterNode
  * Distributed multi-agent cluster mesh with Raft-inspired leader coordination,
  * heartbeat monitoring, and distributed task delegation.

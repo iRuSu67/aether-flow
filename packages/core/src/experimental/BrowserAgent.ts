@@ -1,4 +1,5 @@
 /**
+ * @experimental Stub implementation - prototype not yet verified for production use.
  * BrowserAgent & Computer Use Engine
  * Autonomous web navigation, DOM parsing, element interaction, and visual action dispatch.
  */
