@@ -14,7 +14,7 @@
     "examples/*"
   ],
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
+    "build": "npm --workspace=@aether-flow/core run build && npm --workspace=@aether-flow/cli run build && npm --workspace=@aether-flow/eval run build",
     "typecheck": "tsc --noEmit",
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",

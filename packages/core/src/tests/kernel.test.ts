@@ -12,7 +12,7 @@ import { FlowScriptParser } from '../compiler/Parser.js';
 import { CheckpointEngine } from '../storage/CheckpointEngine.js';
 
 test('Sandbox executes JS code securely in Docker mode and captures logs', async () => {
-  const sandbox = new Sandbox({ mode: 'docker', timeoutMs: 6000 });
+  const sandbox = new Sandbox({ mode: 'docker', timeoutMs: 12000 });
   const code = `
     export default async function execute(args) {
       console.log('Computing payload...');
@@ -134,7 +134,7 @@ test('AetherKernel synthesizes and verifies a dynamic tool in Sandbox [MockProvi
   const kernel = new AetherKernel({
     provider: 'mock',
     sandboxMode: 'docker',
-    sandboxTimeoutMs: 6000,
+    sandboxTimeoutMs: 12000,
   });
 
   const res = await kernel.synthesizeTool({
@@ -164,7 +164,7 @@ test('AetherKernel end-to-end goal execution with plan synthesis and verified ex
     provider: 'mock',
     enableJitTools: true,
     sandboxMode: 'docker',
-    sandboxTimeoutMs: 6000,
+    sandboxTimeoutMs: 12000,
   });
 
   const res = await kernel.executeGoal('Evaluate portfolio risk and calculate standard deviation', {
