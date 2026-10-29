@@ -74,12 +74,25 @@ function parseFailedTests(output) {
   const lines = output.split(/\r?\n/);
   for (const line of lines) {
     const trimmed = line.trim();
+    // 1. Node.js 'spec' reporter format (Node 24+ default, or with --test-reporter=spec)
+    // Matches: ✖ test name (duration)
     if (trimmed.startsWith('✖ ') && !trimmed.includes('failing tests:')) {
       const match = trimmed
         .replace(/^✖\s+/, '')
         .replace(/\s*\([\d.]+m?s\)\s*$/, '')
         .trim();
       if (match) {
+        failed.add(match);
+      }
+    }
+    // 2. Node.js 'tap' reporter format (Node 20/22 default in non-TTY child processes)
+    // Matches: not ok <number> - <test name> [# ...]
+    if (trimmed.startsWith('not ok ')) {
+      const match = trimmed
+        .replace(/^not ok\s+\d+\s*-\s*/, '')
+        .replace(/\s*#.*$/, '')
+        .trim();
+      if (match && !match.toLowerCase().includes('fail 0')) {
         failed.add(match);
       }
     }
@@ -90,7 +103,7 @@ function parseFailedTests(output) {
 function runAdversarialSuite() {
   const res = spawnSync(
     process.execPath,
-    ['--test', '--test-timeout=25000', 'packages/core/dist/tests/sandbox-escape.test.js'],
+    ['--test', '--test-reporter=spec', '--test-timeout=25000', 'packages/core/dist/tests/sandbox-escape.test.js'],
     {
       cwd: rootDir,
       encoding: 'utf8',
@@ -412,6 +425,14 @@ async function main() {
     }
   }
 
+  const logFilePath = path.resolve(rootDir, `mutation-verification-${selectedMode}.log`);
+  const logStream = fs.createWriteStream(logFilePath, { flags: 'w', encoding: 'utf8' });
+
+  function logBoth(msg = '') {
+    console.log(msg);
+    logStream.write(msg + '\n');
+  }
+
   let mutationsToRun = [];
   if (selectedMode === 'subprocess') {
     mutationsToRun = SUBPROCESS_MUTATIONS;
@@ -421,18 +442,18 @@ async function main() {
     mutationsToRun = [...SUBPROCESS_MUTATIONS, ...DOCKER_MUTATIONS];
   }
 
-  console.log('================================================================');
-  console.log('       REAL DEFENSE-IN-DEPTH MUTATION VERIFICATION RUNNER       ');
-  console.log(`  Mode: ${selectedMode.toUpperCase()} | Total Layers: ${mutationsToRun.length}`);
-  console.log('  Each mutation is applied to source, rebuilt, tested, and parsed');
-  console.log('================================================================\n');
+  logBoth('================================================================');
+  logBoth('       REAL DEFENSE-IN-DEPTH MUTATION VERIFICATION RUNNER       ');
+  logBoth(`  Node Version: ${process.version} | Mode: ${selectedMode.toUpperCase()} | Total Layers: ${mutationsToRun.length}`);
+  logBoth('  Each mutation is applied to source, rebuilt, tested, and parsed');
+  logBoth('================================================================\n');
 
   const summary = [];
 
   for (let i = 0; i < mutationsToRun.length; i++) {
     const layer = mutationsToRun[i];
-    console.log(`▶ [Layer ${i + 1}/${mutationsToRun.length}] ${layer.name}`);
-    console.log(`  Description: ${layer.description}`);
+    logBoth(`▶ [Layer ${i + 1}/${mutationsToRun.length}] ${layer.name}`);
+    logBoth(`  Description: ${layer.description}`);
 
     try {
       layer.apply();
@@ -440,14 +461,14 @@ async function main() {
       const failedTests = runAdversarialSuite();
 
       if (failedTests.length === 0) {
-        console.log('  ⚠️ WARNING: Mutation failed NO tests! Defense gap detected.\n');
+        logBoth('  ⚠️ WARNING: Mutation failed NO tests! Defense gap detected.\n');
         summary.push({ name: layer.name, mode: layer.mode, failedCount: 0, failedTests: [] });
       } else {
-        console.log(`  ✔ Real tests that failed under this mutation (${failedTests.length}):`);
+        logBoth(`  ✔ Real tests that failed under this mutation (${failedTests.length}):`);
         for (const testName of failedTests) {
-          console.log(`    ✖ ${testName}`);
+          logBoth(`    ✖ ${testName}`);
         }
-        console.log();
+        logBoth();
         summary.push({ name: layer.name, mode: layer.mode, failedCount: failedTests.length, failedTests });
       }
     } finally {
@@ -456,19 +477,23 @@ async function main() {
     }
   }
 
-  console.log('================================================================');
-  console.log('                      MUTATION RUN SUMMARY                      ');
-  console.log('================================================================');
+  logBoth('================================================================');
+  logBoth('                      MUTATION RUN SUMMARY                      ');
+  logBoth('================================================================');
   let allLayersVerified = true;
   for (const s of summary) {
     if (s.failedCount === 0) {
       allLayersVerified = false;
-      console.log(`❌ [${s.mode.toUpperCase()}] ${s.name}: 0 tests failed (GAP)`);
+      logBoth(`❌ [${s.mode.toUpperCase()}] ${s.name}: 0 tests failed (GAP DETECTED)`);
     } else {
-      console.log(`✔ [${s.mode.toUpperCase()}] ${s.name}: ${s.failedCount} real test(s) failed`);
+      logBoth(`✔ [${s.mode.toUpperCase()}] ${s.name}: ${s.failedCount} real test(s) failed`);
+      for (const t of s.failedTests) {
+        logBoth(`    ↳ caught by: ${t}`);
+      }
     }
   }
-  console.log('================================================================\n');
+  logBoth('================================================================\n');
+  logStream.end();
 
   if (!allLayersVerified) {
     process.exit(1);

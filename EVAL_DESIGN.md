@@ -1,255 +1,298 @@
-# AetherFlow Evaluation Framework Design: Verified Sandbox + Dynamic Tool Synthesis Loop
+# AetherFlow Evaluation Framework Design: Verified Sandbox + Dynamic Tool Synthesis Loop (v2)
 
 **Author:** AetherFlow Engineering  
-**Version:** v0.1-eval-design  
-**Status:** SPECIFICATION / PLANNING ONLY (Implementation Frozen for Checkpoint A2)  
-**Target Subsystem:** `packages/eval/` (Evaluation Benchmark & Comparison Suite)
+**Version:** v0.2-eval-design  
+**Status:** SPECIFICATION / EXPERIMENTAL DESIGN (v2 Frozen)  
+**Target Subsystem:** `packages/eval/` (Evaluation Benchmark & Comparison Harness)
 
 ---
 
-## 1. Executive Summary & Evaluation Hypothesis
+## 1. Executive Summary & Experimental Hypotheses
 
-AetherFlow v0.1 introduces a verified sandbox and dynamic tool-synthesis loop for Large Language Model (LLM) agents. The fundamental hypothesis behind AetherFlow is:
+AetherFlow v0.1 provides a verified sandbox and dynamic tool-synthesis loop for Large Language Model (LLM) agents. The evaluation benchmark assesses the performance, token cost, latency, and reuse characteristics of dynamic tool synthesis against baseline approaches on deterministic tasks.
 
-> **The Tool-Synthesis Hypothesis:**  
-> On complex algorithmic, data transformation, and precise computational tasks, an LLM equipped with **Just-In-Time (JIT) Dynamic Tool Synthesis** inside a **multi-layered verified sandbox** (AST verification + secure container execution + automated feedback retry) will achieve:
-> 1. Significantly higher accuracy and deterministic correctness than direct single-turn LLM generation (zero tools).
-> 2. Significantly greater flexibility and task coverage than fixed, hardcoded tool palettes.
-> 3. Substantial token and latency amortization when previously synthesized tools are indexed and reused across related tasks.
+### Stated Hypotheses (Empirical Test Claims)
 
-This document specifies the exact, reproducible experimental protocol to evaluate this hypothesis empirically.
+1. **Hypothesis 1 (Compute Advantage — C0 vs A):**  
+   Single-shot dynamic tool synthesis executed inside a verified sandbox (Condition C0) achieves a higher deterministic pass rate than single-turn direct generation with zero tools (Condition A) on complex computational, multi-step algorithmic, and structured data tasks.
+
+2. **Hypothesis 2 (Error Recovery via Feedback — C vs C0):**  
+   Iterative synthesis with static AST feedback and sandbox runtime exception feedback (Condition C) achieves a higher deterministic pass rate than single-shot synthesis without feedback (Condition C0).
+
+3. **Hypothesis 3 (Tool Generality vs Static Palettes — C/C0 vs B):**  
+   Dynamic tool synthesis (Conditions C0 and C) achieves higher task coverage than a pre-registered, static tool palette (Condition B) when tasks require specialized algorithms or custom schema transformations not present in the static palette.
+
+4. **Hypothesis 4 (Amortization via Skill Reuse — D vs C):**  
+   When evaluated sequentially across families of tasks sharing the same functional specification, persistent tool indexing and reuse (Condition D) reduces cumulative token consumption and execution latency on subsequent family variants relative to Condition C, without a drop in accuracy.
+
+All evaluation reports will present raw counts ($k/n$), sample proportions, and 95% Wilson score confidence intervals:
+$$CI_{95\%} = \frac{\hat{p} + \frac{z^2}{2n} \pm z \sqrt{\frac{\hat{p}(1-\hat{p})}{n} + \frac{z^2}{4n^2}}}{1 + \frac{z^2}{n}} \quad (z = 1.96)$$
 
 ---
 
 ## 2. Experimental Conditions
 
-The benchmark executes every evaluation task across four distinct experimental conditions under identical temperature and model settings:
+The benchmark compares five conditions under identical model checkpoints, system prompts, and thinking levels:
 
 ```mermaid
 flowchart TD
-    subgraph "Condition A: Single-Turn Baseline"
-        A1[Task Prompt] --> A2[LLM Direct Generation]
-        A2 --> A3[Direct Output Parse]
+    subgraph "Condition A: Zero Tools (Direct Generation)"
+        A1[Task Prompt] --> A2[LLM Direct Answer]
+        A2 --> A3[Lenient JSON Extraction]
     end
 
-    subgraph "Condition B: Fixed Tool Palette"
-        B1[Task Prompt] --> B2[LLM ReAct / Tool Use]
-        B2 <--> B3[Fixed Hardcoded Tools<br/>Math, String, Basic Search]
-        B2 --> B4[Final Output]
+    subgraph "Condition B: Fixed Static Palette (Weak Baseline)"
+        B1[Task Prompt] --> B2[LLM ReAct Agent]
+        B2 <--> B3[Fixed Tools: math_calc, regex_match, json_path, string_slice, array_sort]
+        B2 --> B4[Tool Output Extract]
     end
 
-    subgraph "Condition C: JIT Dynamic Tool Synthesis (AetherFlow Core)"
-        C1[Task Prompt] --> C2[LLM Agent]
-        C2 --> C3[Synthesize Dynamic JS Tool]
-        C3 --> C4{AST Verifier Safe?}
-        C4 -- Banned / Malicious --> C5[Feedback to LLM Retry]
-        C4 -- Safe --> C6[Docker / Sandbox Execute]
-        C6 -- Runtime Error --> C5
-        C6 -- Success --> C7[Capture Result & Output]
-        C5 --> C3
+    subgraph "Condition C0: Single-Shot Tool Synthesis (No Feedback)"
+        C01[Task Prompt] --> C02[LLM Generates Tool]
+        C02 --> C03{AST Check}
+        C03 -- Rejected --> C04[Fail / 0 Retries]
+        C03 -- Passed --> C05[Docker Sandbox Exec]
+        C05 --> C06[Tool Output Extract]
     end
 
-    subgraph "Condition D: Dynamic Synthesis + Tool Reuse (Persistent Skills)"
-        D1[Task Prompt] --> D2[Tool Index Lookup / Embedding Match]
-        D2 -- Exact / Semantic Match --> D3[Reuse Existing Synthesized Tool]
-        D2 -- No Match --> C3
-        D3 --> C6
+    subgraph "Condition C: Iterative Tool Synthesis + Feedback Loop"
+        C1[Task Prompt] --> C2[LLM Generates Tool]
+        C2 --> C3{AST Check}
+        C3 -- Banned --> C4[Feedback Error to LLM]
+        C3 -- Passed --> C5[Docker Sandbox Exec]
+        C5 -- Runtime Error --> C4
+        C4 --> C2
+        C5 -- Success --> C6[Tool Output Extract]
+    end
+
+    subgraph "Condition D: Iterative Synthesis + Skill Reuse"
+        D1[Task Prompt] --> D2{Library Match<br/>by Family ID?}
+        D2 -- Reuse Hit --> D3[Execute Existing Tool in Docker]
+        D3 -- Success --> D4[Tool Output Extract]
+        D3 -- Runtime Fail --> C2
+        D2 -- Library Miss --> C2
     end
 ```
 
 ### Condition Definitions
 
-| Condition ID | Description | Tool Availability | Verification & Execution | Self-Correction Retry |
+| Condition ID | Name | Tool Mechanism | Feedback & Retries | Description |
 | :--- | :--- | :--- | :--- | :--- |
-| **Condition A** | Single-turn direct generation (No tools) | None (zero external compute) | None | None (1 attempt) |
-| **Condition B** | Fixed hardcoded tool palette | Fixed set of 5 pre-registered utilities (`math_calc`, `string_slice`, `regex_match`, `json_query`, `array_sort`) | Pre-registered static tools in Sandbox | Tool error returned to LLM (up to 2 retries) |
-| **Condition C** | JIT Dynamic Tool Synthesis | LLM generates specialized TypeScript/JavaScript tool on demand | Static AST linting + Multi-layer Docker Sandbox | AST & runtime stack trace fed back to LLM (up to 3 retries) |
-| **Condition D** | Dynamic Synthesis + Skill Reuse | JIT Tool Synthesis + Persistent Library (`ToolForge` + `VectorMemory`) | Pre-execution AST check + Docker Sandbox | First queries library; synthesizes on miss; saves on pass |
+| **Condition A** | Single-turn direct | None | 0 retries | LLM directly outputs the final answer. Tests raw model parameter capability. |
+| **Condition B** | Fixed tool palette | 5 static tools | Up to 2 turns | Standard ReAct pattern with static utilities (`math_calc`, `regex_match`, `json_path`, `string_slice`, `array_sort`). *Explicitly designated as a weak/restricted baseline.* |
+| **Condition C0** | Single-shot dynamic tool | LLM generates JS code | 0 retries | Tool code is synthesized once, linted with AST, executed in Docker. No error feedback or correction. |
+| **Condition C** | Iterative dynamic tool | LLM generates JS code | Up to 3 retries | Tool code is synthesized, AST verified, executed in Docker. Errors feed back to LLM for auto-correction. |
+| **Condition D** | Dynamic tool + Skill reuse | Indexed tool library + JIT | Up to 3 retries | Library is cleared at start of run. Variant 1 synthesizes and indexes tool. Variants 2 & 3 query library first. |
 
 ---
 
-## 3. Benchmark Tasks (16 Deterministic Tasks)
+## 3. Benchmark Tasks: 5 Families $\times$ 3 Variants (15 Tasks)
 
-All tasks are strictly deterministic: inputs and expected outputs are formal, mathematically unambiguous, and verified programmatically without LLM-as-a-judge evaluation.
+To test tool synthesis and reuse, tasks are structured into **5 distinct functional families**, each containing **3 variants** sharing the exact same algorithmic specification but evaluated on different inputs, edge cases, and domains.
 
-| # | Task ID | Domain | Input Description | Expected Output / Verifier Criteria | Complexity |
-| :- | :--- | :--- | :--- | :--- | :-: |
-| 1 | `task_01_rle_compression` | Text / Compression | Arbitrary ASCII string with repeated characters | Exact Run-Length Encoded string format: `char + count` | Low |
-| 2 | `task_02_levenshtein_distance` | Text / Dynamic Prog. | Two long strings (200+ chars) with mixed edits | Exact minimum edit distance integer + operation count | Med |
-| 3 | `task_03_markdown_table_parser` | Text / Parser | Multiline GitHub Markdown table with escaped pipes and alignment | Array of structured JSON row objects with typed columns | Med |
-| 4 | `task_04_semver_canonical_sort` | Text / Specs | List of 25 SemVer 2.0 strings with alpha/beta/rc and build metadata | Array sorted strictly by SemVer 2.0 precedence | Med |
-| 5 | `task_05_matrix_eigen_power_iter` | Math / Linear Algebra | 4x4 non-symmetric real matrix + initial vector | Dominant eigenvalue scalar to 4 decimal places | High |
-| 6 | `task_06_csv_pivot_aggregation` | Data Analysis / Stats | Raw 500-line sales CSV (region, quarter, product, units, price, margin) | Two-dimensional pivot table JSON: total revenue & avg margin | Med |
-| 7 | `task_07_rolling_iqr_anomalies` | Data Analysis / Stats | 1,000-point hourly time series with injected spikes | Exact list of timestamp indices identified as outliers by $1.5 \times \text{IQR}$ | High |
-| 8 | `task_08_json_flatten_dot_notation` | Nested Data / Parsing | 5-level deeply nested JSON document with mixed arrays and nulls | Flat dictionary of dot-bracket paths to primitive values | Med |
-| 9 | `task_09_cron_next_5_occurrences` | Parsers / Scheduling | Cron string with step values and ranges + reference UTC ISO time | Array of 5 next exact ISO-8601 UTC timestamps | High |
-| 10 | `task_10_balanced_parentheses_edit` | Algorithmic / Stack | Corrupted string with mixed `()`, `[]`, `{}` and arbitrary text | Minimal removals to produce canonical balanced expression | Med |
-| 11 | `task_11_dijkstra_with_turn_penalties` | Graph / Optimization | Directed graph adjacency list + start/end nodes + turn penalty matrix | Array of node path sequence + total minimal weighted cost | High |
-| 12 | `task_12_topological_cycle_detector` | Graph / Dependencies | Dependency map of 30 packages with circular dependencies | Boolean `hasCycle`, and either exact cycle node array or valid build order | High |
-| 13 | `task_13_knapsack_dual_constraint` | Combinatorial Optim. | 20 items with value, weight, and volume + weight & volume limits | Maximum feasible total value integer + selected item index set | High |
-| 14 | `task_14_lru_cache_simulator` | Systems / Simulation | 50 operations: `get(k)`, `put(k, v)`, `evict()` with capacity $K=5$ | Sequential return values array + final internal MRU-to-LRU key list | Med |
-| 15 | `task_15_canonical_huffman_coder` | Information Theory | Character frequency table + target text paragraph | Canonical Huffman codebook dictionary + exact encoded bitstring | High |
-| 16 | `task_16_state_machine_dfa_lexer` | Compilers / Automata | Source string containing scientific notation numbers, identifiers, ops | Array of `{ type, value, start, end }` token tuples | High |
+### Structure & Specification Summary
+
+```
+Family 1: Text & Delimiter Parser (markdown_table_parser)
+  ├── Variant 1a: Employee directory (columns: name, role, salary, active)
+  ├── Variant 1b: Server telemetry metrics (columns: host, ip, load_avg, status)
+  └── Variant 1c: Financial transactions (columns: tx_id, sender, amount, settled)
+
+Family 2: Algorithmic String Metric (levenshtein_alignment)
+  ├── Variant 2a: DNA codon sequences (50 base pairs, substitutions/insertions)
+  ├── Variant 2b: Source code diff tokens (identifiers and keywords)
+  └── Variant 2c: Natural language sentences with transposition and deletion
+
+Family 3: Graph Traversal with Turn Penalties (dijkstra_turn_penalties)
+  ├── Variant 3a: Urban road grid network (15 nodes, directional left/right turn costs)
+  ├── Variant 3b: Circuit board trace routing (20 nodes, via layer-change penalties)
+  └── Variant 3c: Automated warehouse AGV aisle grid (25 nodes, orientation turn friction)
+
+Family 4: Tabular Pivot & Aggregation (csv_pivot_aggregation)
+  ├── Variant 4a: Retail sales dataset (Region x Quarter -> Total Revenue, Avg Margin)
+  ├── Variant 4b: Cloud infrastructure logs (Cluster x Tier -> Total Requests, Avg Latency)
+  └── Variant 4c: Academic test results (Subject x GradeLevel -> Student Count, Avg Score)
+
+Family 5: Combinatorial 0/1 Knapsack with Dual Constraints (knapsack_dual_constraint)
+  ├── Variant 5a: Freight cargo container packing (20 items, max weight + max volume)
+  ├── Variant 5b: Space exploration payload allocation (15 items, max mass + max power)
+  └── Variant 5c: Cloud VM host placement (25 VM instances, max vCPUs + max RAM)
+```
 
 ---
 
-## 4. Evaluation Metrics
+## 4. Disambiguation, Feasibility Checking & Self-Tests
 
-For each task $i$ in condition $c \in \{A, B, C, D\}$:
+Tasks with potentially non-unique outputs (e.g. alternative shortest paths, tie-breaking in knapsacks, multiple edit alignments) use **feasibility and optimality checkers** rather than fragile exact-string matching.
+
+### Ambiguity Resolutions & Checker Specifications
+
+1. **Levenshtein Alignment (`levenshtein_alignment`):**
+   - Candidate returns an edit script array: `[{ op: 'keep'|'insert'|'delete'|'substitute', char?: string }]`.
+   - Checker applies the operations to source text and verifies:
+     1. Applying edit script exactly reproduces target text.
+     2. Count of edit operations (`insert + delete + substitute`) strictly equals the mathematical Levenshtein distance computed by standard dynamic programming.
+
+2. **Dijkstra with Turn Penalties (`dijkstra_turn_penalties`):**
+   - Candidate returns `{ path: string[], totalCost: number }`.
+   - Checker verifies:
+     1. Path starts at specified `source` and terminates at `target`.
+     2. Every adjacent node pair $(u, v)$ is a directed edge in the graph.
+     3. Turn penalties at every intermediate node $(u, v, w)$ are correctly evaluated based on the turn penalty matrix.
+     4. Sum of edge weights plus turn penalties equals `totalCost` and strictly matches the known minimum cost.
+
+3. **0/1 Knapsack with Dual Constraints (`knapsack_dual_constraint`):**
+   - Candidate returns `{ selectedIndices: number[], totalValue: number }`.
+   - Checker verifies:
+     1. Feasibility: $\sum_{i \in \text{selected}} \text{weight}_i \le W_{\max}$ and $\sum_{i \in \text{selected}} \text{volume}_i \le V_{\max}$.
+     2. Optimality: $\sum_{i \in \text{selected}} \text{value}_i == \text{OptimalValue}$.
+
+4. **Markdown Table Parsing (`markdown_table_parser`):**
+   - Strict parsing rules: handles multiline escaped pipes (`\|`), leading/trailing boundary pipes, column header whitespace stripping, and numeric/boolean type coercion where applicable.
+
+5. **CSV Pivot Aggregation (`csv_pivot_aggregation`):**
+   - Standard rounding: Floating point averages are verified with a strict rounding tolerance: `Math.abs(cand - ref) < 1e-2`.
+
+### Reference Solutions & Checker Self-Test Protocol
+
+Every benchmark task includes:
+1. A deterministic reference implementation (`referenceSolution.ts`).
+2. Three explicit synthetic negative test cases:
+   - **Case 1 (Invalid Structure):** Malformed object schema, missing required fields.
+   - **Case 2 (Feasibility Violation):** Constraint breach (e.g. knapsack capacity exceeded, discontinuous path).
+   - **Case 3 (Sub-Optimal Value):** Feasible answer that fails optimality (e.g. non-minimal cost, sub-optimal value).
+3. **Automated Self-Test Harness:** Prior to evaluating models, `npm run test:checkers` executes all checkers against reference solutions and negative cases, confirming that every reference solution passes ($15/15$) and every negative case is rejected ($45/45$).
+
+---
+
+## 5. Model Parameters, Reasoning & Cache Key Protocol
+
+### Deprecation of Traditional Sampling Parameters
+Recent Gemini model generations (such as Gemini 2.5 Flash, Gemini 3 Flash-Lite, and Gemini 3.8 thinking models) deprecate traditional token-sampling parameters (`temperature`, `top_p`, `top_k`). These parameters are either ignored or trigger warnings, with reasoning models relying on internal optimization policies.
+
+**Evaluation Configuration Policy:**
+- Traditional sampling knobs (`temperature`, `top_p`, `top_k`) are **not set** and no claims of fixed temperature are made.
+- **Thinking Configuration:** The thinking level is fixed identically across all conditions via standard generation settings (e.g., `thinkingConfig: { thinkingBudget: 1024 }` or `thinking_level: "low"`).
+- **Run Repetitions ($N \ge 3$):** Each task variant is evaluated across $N=3$ independent runs to measure variance.
+- **Cache Key Formulation:** The run index $r \in \{0, 1, 2\}$ is explicitly incorporated into the cache key:
+  $$\text{CacheKey} = \text{SHA256}(\text{model} + \text{systemPrompt} + \text{messages} + \text{thinkingConfig} + \text{runIndex})$$
+
+### Token Accounting & Provenance
+Every API turn captures:
+- `prompt_tokens`: Input tokens
+- `thinking_tokens`: Extracted from `usageMetadata.candidatesTokenDetails[0].thinkingTokenCount` or `usageMetadata.thoughtsTokenCount`
+- `output_tokens`: Completion tokens excluding thoughts
+- `total_tokens`: Grand total
+
+### Final Answer Provenance & Lenient JSON Extraction
+- For Conditions B, C0, C, and D, the final answer evaluated by the checker is derived **strictly from the tool execution output in the sandbox** (`result`), with zero LLM post-processing.
+- All conditions utilize identical lenient extraction logic:
+  1. Direct `JSON.parse` if valid JSON string.
+  2. Regex match on Markdown fenced JSON: ```` ```json\s*([\s\S]*?)\s*``` ````.
+  3. First balanced bracket pair `{ ... }` or `[ ... ]` in text.
+
+---
+
+## 6. Condition D: Persistent Skill Library & Semantic Description Reuse
+
+### Zero Oracle Leakage Architecture
+1. The tool library (`ToolLibrary`) is initialized **empty** at the beginning of each benchmark repetition.
+2. Tasks within each family are evaluated sequentially: **Variant a $\to$ Variant b $\to$ Variant c**.
+3. **Strict Oracle and Metadata Isolation:**
+   - Retrieval does **NOT** use `task.familyId` or `task.checker`.
+   - Matching is computed solely over the normalized agent-visible **task prompt description** using token cosine similarity ($\ge 0.25$ threshold).
+   - Candidate validation uses **ONLY agent-visible public examples** (`task.example.input` and `task.example.output`) inside the Docker Sandbox.
+   - Hidden checkers are evaluated strictly post-hoc by the external harness.
+
+### Matching & Validation Protocol
+- **Variant a (Initial Task in Family):**
+  - Library miss $\implies$ synthesizes tool via Condition C loop.
+  - If synthesis succeeds, the tool is indexed in `ToolLibrary` keyed by prompt description.
+- **Variants b & c (Subsequent Variants):**
+  - Prompt description retrieves candidate tool from `ToolLibrary`.
+  - Candidate tool is validated in Docker sandbox against `task.example`:
+    - If valid: executed on `task.input`. If execution passes $\implies$ **`REUSE_HIT`** recorded (0 LLM synthesis calls).
+    - If invalid or execution throws: **`REUSE_MISS`** recorded; falls back to Condition C dynamic synthesis.
+- **Reporting Metrics:**
+  - **Reuse Hit Rate:** $\frac{\text{Attempted Reuses}}{\text{Eligible Variants (10)}} \times 100\%$
+  - **Reuse Precision:** $\frac{\text{Accurate Reuses (Passing Hidden Checker)}}{\text{Attempted Reuses}} \times 100\%$
+
+---
+
+## 7. Metrics & Error Taxonomy
 
 1. **Deterministic Accuracy ($Acc$):**
-   $$\text{Pass}(i, c) = \begin{cases} 1 & \text{if candidate output matches expected output via test checker} \\ 0 & \text{otherwise} \end{cases}$$
-   $$\text{Condition Accuracy} = \frac{1}{N} \sum_{i=1}^N \text{Pass}(i, c) \times 100\%$$
+   $$\text{Pass Rate} = \frac{k}{n_{\text{valid}}} \quad \text{with 95\% Wilson Score Interval}$$
+   Where $n_{\text{valid}} = n_{\text{total}} - n_{\text{provider\_errors}}$. Provider outages are isolated and never scored as algorithmic task failures.
 
-2. **Synthesis First-Pass Rate ($S_{first}$):**
-   Percentage of tools synthesized in Condition C/D that pass AST verification and execute without runtime error on attempt 1.
+2. **AST False-Rejection Rate ($F_{\text{AST}}$):**
+   Percentage of tools that are functionally benign and correct but blocked by AST heuristics.
 
-3. **Synthesis Eventual Pass Rate ($S_{eventual}$):**
-   Percentage of tools synthesized that pass after up to 3 automated retry attempts.
+3. **Error Taxonomy Counts:**
+   - `SYNTAX_ERROR`: Code fails initial parsing or AST evaluation.
+   - `POLICY_BLOCKED`: Code rejected by ASTVerifier banned patterns.
+   - `RUNTIME_ERROR`: Uncaught exception or assertion failure inside Docker sandbox.
+   - `TIMEOUT`: Execution terminated by sandbox timeout ($8,000\text{ms}$).
+   - `WRONG_OUTPUT`: Execution succeeded, but checker rejected output.
+   - `PROVIDER_ERROR`: External provider network drop, DNS failure, 503 overload, or 429 quota exhaustion. Excluded from accuracy calculations; marks run as `INCOMPLETE`.
+   - `SUCCESS`: Clean execution passing deterministic evaluation.
 
-4. **Token Consumption ($T_{prompt}, T_{completion}, T_{total}$):**
-   Exact token counts logged per task across all turns and retries.
+4. **Token Cost Breakdown:** Average prompt, thinking, output, and total tokens per condition.
 
-5. **Wall-Clock Latency ($L$):**
-   Total elapsed time in milliseconds from task initiation to final answer submission.
-
-6. **Tool Reuse Rate ($R_{reuse}$ for Condition D):**
-   $$\text{Reuse Rate} = \frac{\text{Tasks using cached/indexed tool}}{\text{Total eligible tasks}} \times 100\%$$
+5. **Wall-Clock Latency ($L$):** Total latency in milliseconds per condition.
 
 ---
 
-## 5. Free-Tier Gemini API Cost Controls & Safety Guardrails
+## 8. Staged Evaluation Plan, Quotas & Rate Limits
 
-Because the project relies on a free-tier Gemini API key (`GEMINI_API_KEY`), strict operational constraints and guardrails are engineered into the evaluation architecture.
+### Free-Tier Quota Reality & Configurable Limits
+Free-tier API keys for reasoning models (e.g. Gemini 3.8 Flash / Gemini 3.5 Flash) operate under strict constraints verified in Google AI Studio:
+- **RPM:** `5` requests per minute.
+- **Pacing:** Minimum `13` seconds between requests enforced by the rate limiter (`Math.max(13000, 60000 / rpm)`).
+- **TPM:** `250,000` tokens per minute.
+- **RPD:** `20` requests per day hard cap.
+- **Daily Budget (`--daily-budget`):** Default `18` calls per day (leaving a safety margin of 2 calls).
+- **Quota Error Handling:**
+  - Daily quota 429 (`DailyQuotaExhaustedError`): **NEVER retried**. Execution halts immediately with state saved to checkpoint and prompt to resume tomorrow.
+  - Transient per-minute 429s / 503s: Retried up to 2 times with exponential backoff (honoring `retryDelay`). Every retry counts against the daily budget.
 
-### Free-Tier API Quota Limits
-- **Requests Per Minute (RPM):** 15
-- **Tokens Per Minute (TPM):** 1,000,000
-- **Requests Per Day (RPD):** 1,500
+### Staged Evaluation Architecture
 
-### Cost Control Mechanisms
+To operate within free-tier limits without compromising experimental rigor, evaluation is organized into sequential stages:
 
 ```mermaid
-flowchart LR
-    Task[Eval Task Request] --> PreCheck[Pre-Flight Call Estimator]
-    PreCheck --> CacheCheck{SHA-256 Hash<br/>in Disk Cache?}
-    CacheCheck -- Cache Hit --> ReturnCached[Return Cached Response<br/>0 API Calls / 0ms]
-    CacheCheck -- Cache Miss --> HardCapCheck{Exceeded Max Run Cap<br/>e.g. 50 calls?}
-    HardCapCheck -- Yes --> AbortGraceful[Save Checkpoint & Abort]
-    HardCapCheck -- No --> RateLimiter[Sliding-Window Rate Limiter<br/>4.5s min interval / 15 RPM]
-    RateLimiter --> APICall[Gemini API Call]
-    APICall -- 429 Rate Limit --> ExponentialBackoff[Backoff & Retry with Jitter]
-    ExponentialBackoff --> RateLimiter
-    APICall -- 200 OK --> SaveCache[Save to .eval_cache/<hash>.json]
-    SaveCache --> SaveCheckpoint[Save eval_checkpoint.json]
-    SaveCheckpoint --> Response[Proceed to Sandbox / Verifier]
+flowchart TD
+    S1["Stage 1: Core Synthesis and Sandboxing<br/>Conditions: A, C0, C | Tasks: 15 | N=1<br/>Calls: 45-90 (Typ: 60) | Duration: ~3-5 Days"]
+    S2["Stage 2: Fixed Palette and Skill Reuse<br/>Conditions: B, D | Tasks: 15 | N=1<br/>Calls: 20-105 (Typ: 44) | Duration: ~2-6 Days"]
+    S3["Stage 3: Multi-Run Confidence Intervals<br/>Conditions: A, B, C0, C, D | Tasks: 15 | N=3<br/>Calls: 195-585 | Local Ollama or Paid Tier"]
+
+    S1 -->|Validates Hypotheses 1 and 2| S2
+    S2 -->|Validates Hypotheses 3 and 4| S3
 ```
 
-1. **Deterministic Response Cache (`.eval_cache/`):**
-   - Every API request is indexed by:
-     $$\text{Key} = \text{SHA256}(\text{model} + \text{systemPrompt} + \text{messages} + \text{temperature})$$
-   - Cache hits return instantly with zero network traffic and zero API consumption.
-   - Any re-run of an evaluation suite with identical parameters consumes **0 API calls**.
+#### Stage Breakdown & Call Budget Table
 
-2. **Sliding-Window Rate Limiter:**
-   - Enforces a minimum delay of 4,200ms between calls (ensuring $\le 14$ RPM, comfortably below the 15 RPM hard ceiling).
-   - On encountering HTTP 429, automatically triggers exponential backoff:
-     $$T_{\text{backoff}} = \min(60\text{s}, 2^{\text{attempt}} \times 5\text{s}) + \text{random}(0, 2\text{s})$$
+| Stage | Conditions | Focus / Research Question | Tasks | Runs ($N$) | Min Calls | Typ Calls | Max Calls | Daily Budget | Est. Days |
+| :--- | :---: | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Stage 1** | **A, C0, C** | Does code execution help (A vs C0)? Does retry loop help (C0 vs C)? | 15 | 1 | **45** | **60** | **90** | 18 calls/day | **3-5 days** |
+| **Stage 2** | **B, D** | Does dynamic synthesis beat fixed tools (C vs B)? Does reuse save tokens (D vs C)? | 15 | 1 | **20** | **44** | **105** | 18 calls/day | **2-6 days** |
+| **Stage 3** | **A, B, C0, C, D** | Variance reduction & tight Wilson CIs via local model (Ollama) or billing | 15 | 3 | **195** | **312** | **585** | Unmetered (0 API cost) | **< 1 day** |
 
-3. **Configurable Hard Cap on API Calls per Run:**
-   - Default ceiling: `--max-api-calls=50`.
-   - If an evaluation run approaches the budget ceiling, the runner halts gracefully, flushes all checkpoints, and alerts the user without discarding progress.
-
-4. **Resumable State Checkpoints (`eval_checkpoint.json`):**
-   - After each task completes across conditions, the full state is committed to disk.
-   - If interrupted (by user, rate-limit timeout, or process kill), running with `--resume` resumes from task $k+1$ without repeating tasks $1 \dots k$.
-
-5. **Upfront Call Count Estimator:**
-   Before any live execution, the CLI prints the exact mathematical upper and lower bounds:
-   $$\text{Min Calls} = N_{\text{tasks}} \times (\text{Cond}_A + \text{Cond}_B + \text{Cond}_C + \text{Cond}_D)$$
-   $$\text{Max Calls} = N_{\text{tasks}} \times (1 + (1 + R_B) + (1 + R_C) + (1 + R_D))$$
-   For 16 tasks with 0 cache hits and max 2 retries:
-   - Minimum calls (all pass first try): $16 \times (1 + 1 + 1 + 0) = 48 \text{ calls}$.
-   - Maximum calls (all fail and exhaust retries): $16 \times (1 + 3 + 3 + 1) = 128 \text{ calls}$.
-   Runs can be sliced into batches of 5 tasks (`--limit=5`) to stay well within daily free-tier quotas (e.g. 20-30 calls per batch).
-
-6. **Local Ollama Fallback (Zero-Cost Verification Option):**
-   - The evaluation harness supports `--provider=ollama --model=qwen2.5-coder:7b` for 100% offline, zero-quota, zero-cost regression testing before running against Gemini API.
+### Daily Automation Command: `npm run eval:daily`
+Executing `npm run eval:daily` automatically:
+1. Reads `.eval_daily_budget.json` (date-keyed in local timezone) and `eval_checkpoint.json`.
+2. Inspects stage progress and targets the current active stage.
+3. Respects `--daily-budget=18` and 13-second request pacing.
+4. Checkpoints after each task and cleanly exits when the daily budget is reached.
+5. Prints progress summary and tells the user exactly what remains for the next day.
 
 ---
 
-## 6. Implementation Architecture & File Layout
+## 9. Fail-Closed Security Policy
 
-When authorized in Checkpoint B, the evaluation harness will be implemented strictly within `packages/eval/`:
-
-```
-packages/eval/
-├── package.json                   # Workspace package manifest
-├── tsconfig.json                  # TypeScript build configuration
-├── src/
-│   ├── index.ts                   # CLI entrypoint and benchmark runner
-│   ├── types.ts                   # Task schema, Result interfaces, Metric types
-│   ├── runner/
-│   │   ├── EvalRunner.ts          # Condition executor (A, B, C, D)
-│   │   ├── RateLimiter.ts         # Sliding-window rate limiter with backoff
-│   │   ├── ResponseCache.ts       # Disk-backed SHA256 response cache
-│   │   └── CheckpointManager.ts   # Incremental JSON state persistence
-│   ├── tasks/
-│   │   ├── task-schema.json       # JSON Schema validation for benchmark tasks
-│   │   ├── task-registry.ts       # Task loader and metadata index
-│   │   ├── checkers/              # Deterministic evaluation checkers
-│   │   │   ├── text-checkers.ts   # Checkers for tasks 01-04
-│   │   │   ├── math-checkers.ts   # Checkers for tasks 05-07
-│   │   │   ├── parse-checkers.ts  # Checkers for tasks 08-10
-│   │   │   └── algo-checkers.ts   # Checkers for tasks 11-16
-│   │   └── definitions/           # Task test vectors and prompts (JSON)
-│   │       ├── task_01_rle.json
-│   │       ├── ...
-│   │       └── task_16_dfa.json
-│   └── report/
-│       ├── MetricsAggregator.ts   # Statistical computation (mean, median, pass rate)
-│       └── MarkdownReporter.ts    # Generates raw RESULTS.md with full evidence
-```
-
-### Benchmark Task JSON Schema
-
-```json
-{
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "AetherFlowBenchmarkTask",
-  "type": "object",
-  "required": ["id", "domain", "title", "prompt", "checkerName", "testInput", "expectedOutput"],
-  "properties": {
-    "id": { "type": "string" },
-    "domain": { "enum": ["text", "math", "data", "parsing", "graph", "combinatorics", "systems"] },
-    "title": { "type": "string" },
-    "prompt": { "type": "string" },
-    "checkerName": { "type": "string" },
-    "testInput": { "type": ["string", "object", "array", "number"] },
-    "expectedOutput": { "type": ["string", "object", "array", "number"] },
-    "timeoutMs": { "type": "number", "default": 10000 },
-    "maxTokens": { "type": "number", "default": 2048 }
-  }
-}
-```
-
----
-
-## 7. Threats to Validity, Risks, & Honest Reporting
-
-1. **Threat: Data Contamination in LLM Training Weights:**
-   - *Risk:* The LLM may have memorized textbook Levenshtein or Dijkstra implementations.
-   - *Mitigation:* Tasks incorporate domain-specific twists (e.g. Dijkstra with non-standard turn-penalty matrices; Markdown table parsing with irregular multiline pipe escaping) that do not appear in common coding benchmark datasets (HumanEval, MBPP).
-
-2. **Threat: Unfavorable Tool Synthesis Latency:**
-   - *Risk:* Dynamic tool synthesis requires AST parsing, container spin-up, and code execution, which will incur higher wall-clock latency than single-turn text generation.
-   - *Honest Reporting Rule:* We will explicitly report latency distributions. If Condition C is $3\times$ slower than Condition A, that trade-off must be reported clearly alongside accuracy gains.
-
-3. **Threat: Negative Result (Synthesis Does Not Beat Baseline):**
-   - *Policy:* In accordance with Global Rule 6: If dynamic tool synthesis fails to outperform Condition A or B, we will document the exact failure modes (e.g., AST reject false positives, synthesis prompt drift, execution timeout) without hiding or smoothing results.
-
----
-
-## 8. Checkpoint Boundary & Next Steps
-
-This evaluation design is **strictly frozen** for Checkpoint A2. No evaluation harness code is implemented during this checkpoint. Implementation will occur only upon approval in Checkpoint B.
+To prevent arbitrary code execution on host machines during evaluation:
+- The evaluation harness **strictly refuses** to execute Conditions C0, C, and D unless:
+  1. `Sandbox.isDockerAvailable() === true`
+  2. `options.unsafeDevMode !== true`
+- If Docker is unavailable, the runner terminates immediately with a fail-closed error.
+- `.eval_cache/` and `.env` are excluded in `.gitignore`.

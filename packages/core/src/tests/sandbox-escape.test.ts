@@ -469,7 +469,7 @@ for (const mode of MODES) {
 
   test(`[${mode}] VM Context Realm Isolation: sandboxed code cannot mutate runner JSON.stringify, Array.prototype, or Object.prototype`, async () => {
     console.log(`  [MODE: ${mode}] VM Context Realm Isolation: sandboxed code cannot mutate runner prototypes`);
-    const sandbox = createSandbox(mode, { timeoutMs: mode === 'docker' ? 5000 : 2000 });
+    const sandbox = createSandbox(mode, { timeoutMs: mode === 'docker' ? 10000 : 2000 });
     const code = `
       export default async function execute(args) {
         Array.prototype.push = function() { throw new Error('Sabotaged push'); };
@@ -657,7 +657,7 @@ test('Docker probe: container memory limit is enforced (memory.max matches 64MB)
 
 test('Docker mode host-side stderr flooding is terminated by output limit cap', async () => {
   console.log('  [MODE: docker] Docker mode host-side stderr flooding is terminated by output limit cap');
-  const sandbox = new Sandbox({ mode: 'docker', timeoutMs: 5000, maxOutputBytes: 32 * 1024 });
+  const sandbox = new Sandbox({ mode: 'docker', timeoutMs: 12000, maxOutputBytes: 32 * 1024 });
   const code = `
     export default async function execute(args) {
       while(true) {

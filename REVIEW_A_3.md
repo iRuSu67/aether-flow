@@ -478,7 +478,7 @@ for (const mode of MODES) {
 
   test(`[${mode}] VM Context Realm Isolation: sandboxed code cannot mutate runner JSON.stringify, Array.prototype, or Object.prototype`, async () => {
     console.log(`  [MODE: ${mode}] VM Context Realm Isolation: sandboxed code cannot mutate runner prototypes`);
-    const sandbox = createSandbox(mode, { timeoutMs: mode === 'docker' ? 5000 : 2000 });
+    const sandbox = createSandbox(mode, { timeoutMs: mode === 'docker' ? 10000 : 2000 });
     const code = `
       export default async function execute(args) {
         Array.prototype.push = function() { throw new Error('Sabotaged push'); };

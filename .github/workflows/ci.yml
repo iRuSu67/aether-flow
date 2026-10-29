@@ -53,3 +53,12 @@ jobs:
       run: |
         node scripts/verify_mutations.js --mode=docker
         node scripts/verify_mutations.js --mode=subprocess
+
+    - name: Upload Mutation Defense Verification Logs
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: mutation-logs-node-${{ matrix.node-version }}
+        path: |
+          mutation-verification-*.log
+          *.log
