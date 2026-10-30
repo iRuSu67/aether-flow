@@ -9,6 +9,6 @@
     "dev": "node server.js"
   },
   "dependencies": {
-    "@aether-flow/core": "1.0.0"
+    "@aether-flow/core": "0.1.0"
   }
 }
