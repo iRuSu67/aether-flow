@@ -1,6 +1,6 @@
 {
   "name": "aether-flow-monorepo",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "Autonomous Multi-Agent Microkernel & Real-Time Cognitive Canvas with On-the-Fly Tool Synthesis",

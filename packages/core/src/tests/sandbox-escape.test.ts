@@ -98,6 +98,33 @@ test('ASTVerifier blocks static while(true) infinite loops', () => {
   assert.ok(report.bannedPatternsDetected.some((p) => p.includes('INFINITE_LOOP')));
 });
 
+test('ASTVerifier permits while(true) loop with reachable break or return statement', () => {
+  console.log('  [MODE: static-ast] ASTVerifier permits while(true) with break or return');
+  const verifier = new ASTVerifier();
+  const codeWithBreak = `
+    export default async function execute(args) {
+      let i = 0;
+      while (true) {
+        i++;
+        if (i > 10) break;
+      }
+      return i;
+    }
+  `;
+  const reportBreak = verifier.verify(codeWithBreak);
+  assert.equal(reportBreak.isSafe, true, 'Loops with reachable break must not be falsely rejected');
+
+  const codeWithReturn = `
+    export default async function execute(args) {
+      while (true) {
+        if (args.done) return args.result;
+      }
+    }
+  `;
+  const reportReturn = verifier.verify(codeWithReturn);
+  assert.equal(reportReturn.isSafe, true, 'Loops with reachable return must not be falsely rejected');
+});
+
 // ============================================================================
 // LAYER 2: KNOWN AST BYPASSES (AST MISSES, SANDBOX CONTAINS)
 // Demonstrates that AST is only a static lint; Sandbox runtime is the true boundary.

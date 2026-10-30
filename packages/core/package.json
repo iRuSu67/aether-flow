@@ -1,6 +1,6 @@
 {
   "name": "@aether-flow/core",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "High-performance Autonomous Multi-Agent Microkernel with Just-In-Time Tool Synthesis",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

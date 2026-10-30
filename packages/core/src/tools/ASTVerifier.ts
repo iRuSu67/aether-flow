@@ -163,15 +163,16 @@ export class ASTVerifier {
         }
       }
 
-      // 8. Infinite Loops
+      // 8. Infinite Loops: only flag if loop body lacks a reachable break or return statement
       if (ts.isWhileStatement(node)) {
-        if (node.expression.kind === ts.SyntaxKind.TrueKeyword) {
+        const isConstTrue =
+          node.expression.kind === ts.SyntaxKind.TrueKeyword ||
+          (ts.isNumericLiteral(node.expression) && node.expression.text !== '0');
+        if (isConstTrue && !this.hasReachableLoopExit(node.statement)) {
           bannedDetected.push('POTENTIAL_INFINITE_LOOP: while(true)');
-        } else if (ts.isNumericLiteral(node.expression) && node.expression.text !== '0') {
-          bannedDetected.push(`POTENTIAL_INFINITE_LOOP: while(${node.expression.text})`);
         }
       } else if (ts.isForStatement(node)) {
-        if (!node.condition && !node.initializer && !node.incrementor) {
+        if (!node.condition && !node.initializer && !node.incrementor && !this.hasReachableLoopExit(node.statement)) {
           bannedDetected.push('POTENTIAL_INFINITE_LOOP: for(;;)');
         }
       }
@@ -198,5 +199,48 @@ export class ASTVerifier {
       bannedPatternsDetected: bannedDetected,
       complexityScore,
     };
+  }
+
+  private hasReachableLoopExit(statement: ts.Statement): boolean {
+    let hasExit = false;
+
+    const checkExit = (node: ts.Node) => {
+      if (hasExit) return;
+
+      if (ts.isReturnStatement(node)) {
+        hasExit = true;
+        return;
+      }
+
+      if (ts.isBreakStatement(node) && !node.label) {
+        hasExit = true;
+        return;
+      }
+
+      if (
+        ts.isForStatement(node) ||
+        ts.isWhileStatement(node) ||
+        ts.isDoStatement(node) ||
+        ts.isForInStatement(node) ||
+        ts.isForOfStatement(node) ||
+        ts.isSwitchStatement(node)
+      ) {
+        const checkReturnOnly = (innerNode: ts.Node) => {
+          if (hasExit) return;
+          if (ts.isReturnStatement(innerNode)) {
+            hasExit = true;
+            return;
+          }
+          ts.forEachChild(innerNode, checkReturnOnly);
+        };
+        ts.forEachChild(node, checkReturnOnly);
+        return;
+      }
+
+      ts.forEachChild(node, checkExit);
+    };
+
+    checkExit(statement);
+    return hasExit;
   }
 }

@@ -12,7 +12,7 @@
 ### Verified Sandbox + Dynamic Tool Synthesis Loop for LLM-Generated Code
 **Fail-Closed Container Isolation • Static AST Verification • JIT Tool Synthesis • Defense-in-Depth**
 
-[![CI Status](https://img.shields.io/badge/build-passing-brightgreen?style=for-the-badge&logo=github-actions)](https://github.com/iRuSu67/aether-flow/actions)
+[![CI Status](https://github.com/iRuSu67/aether-flow/actions/workflows/ci.yml/badge.svg)](https://github.com/iRuSu67/aether-flow/actions)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=for-the-badge)](https://opensource.org/licenses/Apache-2.0)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
 [![Docker](https://img.shields.io/badge/Docker-Isolated_Container-2496ED?style=for-the-badge&logo=docker)](SECURITY.md)
@@ -31,23 +31,31 @@
 
 ---
 
+<p align="center">
+  <img src="docs/demo.svg" alt="AetherFlow Demo Replay" width="100%">
+  <br>
+  <em>Replay of a real run against gemini-3.5-flash-lite (recorded in docs/demo-output.txt)</em>
+</p>
+
+---
+
 </div>
 
 ## 💡 The Pitch
 
-When LLMs solve complex mathematical, analytical, or algorithmic problems, they face a stark choice:
-1. **Direct Generation (Zero-Shot)**: Models frequently hallucinate intermediate states, fail on combinatorial loops ($O(MN)$ alignment, dynamic programming), and consume massive token budgets re-deriving calculations in natural language.
-2. **Fixed Static Palettes (ReAct / Function Calling)**: Frameworks force models into rigid, predefined tool suites (`math_calc`, `regex_match`). When a task requires an unpredicted algorithm (e.g. Dijkstra turn penalties or 2D matrix pivoting), the model enters expensive multi-turn failure loops.
-3. **Cloud Sandboxes (e2b, Modal)**: Remote cloud microVMs incur external latency (200–500ms network roundtrips), SaaS subscription fees, vendor lock-in, and privacy hazards by streaming enterprise data to third-party infrastructure.
+When LLMs solve complex mathematical, analytical, or algorithmic problems, they face trade-offs across common execution paradigms:
+1. **Direct Generation (Zero-Shot)**: Models frequently hallucinate intermediate states, struggle with combinatorial sequence alignment ($O(MN)$ Levenshtein dynamic programming), and consume large token budgets generating calculations in natural language.
+2. **Fixed Static Palettes (ReAct / Function Calling)**: Frameworks force models into predefined tool sets (`math_calc`, `regex_match`). When an unpredicted algorithm is needed (e.g. Dijkstra turn penalties or 2D matrix pivoting), simple palettes cannot fulfill the task, leading to multi-turn failure loops.
+3. **Remote Cloud MicroVMs**: Running untrusted code in external cloud sandboxes incurs network latency roundtrips, recurring subscription costs, and vendor dependency for enterprise data.
 
 **AetherFlow is a local, fail-closed TypeScript microkernel and sandboxed runtime that empowers LLMs to synthesize custom tools Just-In-Time (JIT) and execute them safely.**
 
 AetherFlow bridges the gap with a closed feedback loop:
 - **Synthesize on Demand**: The model writes a specialized, single-file JavaScript/TypeScript function tailored to the exact problem.
-- **Static AST Linter**: High-speed TypeScript AST analysis rejects dangerous identifiers (`eval`, `process`, `Function`, `__proto__`, dynamic imports) in **~20ms** before code ever runs.
+- **Static AST Linter**: High-speed TypeScript AST analysis rejects dangerous identifiers (`eval`, `process`, `Function`, `__proto__`, dynamic imports) in **~20ms** before code ever runs. Benign loops with reachable `break` or `return` statements are permitted.
 - **Fail-Closed Docker Sandboxing**: The synthesized tool executes inside an isolated, airgapped ephemeral Docker container (`--network none`, `--read-only`, non-root user, dropped capabilities, strict cgroups RAM/PID limits).
-- **Self-Healing Synthesis Loop**: If compilation fails or execution times out, the error is fed back to the model to self-correct.
-- **Semantic Library Reuse**: Verified tools are indexed by task description; similar subsequent tasks reuse existing tools at **0 model tokens** and **~2.3s latency**.
+- **Self-Healing Synthesis Loop**: If execution fails or times out in the sandbox, the diagnostic is fed back to the model to self-correct.
+- **Semantic Library Reuse**: Verified tools are indexed by task description; similar subsequent tasks reuse existing tools at **0 model tokens** and **~2.4s latency**.
 
 ---
 
@@ -55,17 +63,17 @@ AetherFlow bridges the gap with a closed feedback loop:
 
 Honest architectural comparison across execution paradigms:
 
-| Capability / Dimension | Direct Generation | ReAct / Fixed Palette | Remote Cloud MicroVMs (e2b) | AetherFlow v0.1 |
+| Capability / Dimension | Direct Generation | ReAct / Fixed Palette (Weak Baseline) | Cloud MicroVM Sandbox | AetherFlow v0.1 |
 | :--- | :---: | :---: | :---: | :---: |
-| **Arbitrary Algorithmic Execution** | ❌ (Hallucinates complex loops) | ❌ (Restricted to static palette) | ✔ (Full Python/Linux VM) | ✔ (JIT-synthesized ES modules) |
-| **Execution Isolation Boundary** | None (Text generation) | Host Process or App Sandbox | Cloud MicroVM (Firecracker) | Fail-Closed Local Docker Container |
-| **Network Airgap Guarantee** | Dependent on host | Dependent on host | ⚠️ Requires firewall config | ✔ Strict `--network none` default |
-| **Static AST Pre-Verification** | N/A | Rare / Regex lints | ❌ (Direct execution) | ✔ TypeScript AST Compiler API (~20ms) |
-| **Self-Healing Compiler/Runtime Loop**| ❌ | ❌ | Application-dependent | ✔ Built-in iterative retry & feedback |
+| **Arbitrary Algorithmic Execution** | ❌ (Prone to combinatorial loop hallucination) | ❌ (Restricted to predefined tool palette) | ✔ (Full VM runtime environment) | ✔ (JIT-synthesized ES modules) |
+| **Execution Isolation Boundary** | None (Text generation only) | Host Process or App Sandbox | Cloud MicroVM (Tenant VM boundary) | Fail-Closed Local Docker Container |
+| **Network Airgap Guarantee** | Dependent on host process | Dependent on host process | Network policy dependent | ✔ Strict `--network none` default |
+| **Static AST Pre-Verification** | N/A | Rare / Simple regex | ❌ (Direct execution) | ✔ TypeScript AST Compiler API (~20ms) |
+| **Self-Healing Compiler/Runtime Loop**| ❌ | ❌ | Application-level logic | ✔ Built-in iterative retry & feedback |
 | **Dynamic Semantic Tool Reuse** | ❌ | ❌ (Manual configuration) | ❌ | ✔ Description-keyed `ToolLibrary` (0 tokens) |
-| **Data Privacy & Egress** | Zero local airgap | Zero local airgap | ❌ Third-party cloud data transfer | ✔ 100% Local airgap ($0 egress) |
-| **Execution Cost** | Model tokens only | High (Multi-turn tool chatter) | Cloud VM $/hour + token costs | $0 Host compute + 0-token tool reuse |
-| **Cold-Start Latency** | **~0 ms** | **~0 ms** | ~200–500 ms (MicroVM init) | ~1,000–1,300 ms (Docker container init) |
+| **Data Privacy & Airgap** | Host process dependent | Host process dependent | Cloud infrastructure dependent | ✔ 100% Local container airgap |
+| **Execution Cost** | Model tokens only | High (Multi-turn tool chatter) | SaaS / Cloud compute fees + tokens | $0 Host compute + 0-token tool reuse |
+| **Cold-Start Latency** | **~0 ms** | **~0 ms** | Provider network dependent | ~1,000–1,300 ms (Ephemeral Docker init) |
 
 ---
 
@@ -85,7 +93,7 @@ cd aether-flow
 npm ci
 npm run build
 
-# Run the 57 automated unit and security tests
+# Run the 58 automated unit and security tests
 npm test
 ```
 
@@ -97,7 +105,7 @@ npm run demo
 
 ### 4. Programmatic API Usage
 ```typescript
-import { Sandbox, ASTVerifier, ToolForge } from '@aether-flow/core';
+import { Sandbox, ASTVerifier } from '@aether-flow/core';
 
 // 1. Initialize fail-closed Docker sandbox
 const sandbox = new Sandbox({
@@ -148,13 +156,13 @@ AetherFlow enforces a **fail-closed security contract**:
 
 ## 🔬 Empirical Evaluation Results
 
-AetherFlow was benchmarked using Google's lightweight model **Gemini 3.5 Flash-Lite** (`gemini-3.5-flash-lite`, stable GA) across **15 benchmark tasks** in **5 algorithmic domains** with $N=3$ independent repetitions per task (225 total runs).
+AetherFlow was benchmarked using [Google Gemini 3.5 Flash-Lite](https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash-lite) across **15 benchmark tasks** in **5 algorithmic domains** with $N=3$ repetitions per task (225 total runs).
 
 - **Full Results File**: [`eval_results_gemini-3_5-flash-lite.json`](eval_results_gemini-3_5-flash-lite.json)
 - **Dated Results File**: [`eval/results/2026-10-30.json`](eval/results/2026-10-30.json)
 - **Design Specification**: [`EVAL_DESIGN.md`](EVAL_DESIGN.md)
 
-### Per-Condition Performance ($N=45$ runs per condition)
+### Per-Condition Performance ($N=45$ runs per condition across 15 tasks)
 
 | Condition | Description | Pass Rate (95% Wilson CI) | Mean Latency | Mean Total Tokens | Thinking Tokens | Output Tokens |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
@@ -164,17 +172,44 @@ AetherFlow was benchmarked using Google's lightweight model **Gemini 3.5 Flash-L
 | **Condition C** | JIT Code Synthesis + Self-Healing Feedback Loop | **91.1%** [79.3%, 96.5%] | 6,645 ms | 1,880 | 588 | 726 |
 | **Condition D** | JIT Code Synthesis + Semantic `ToolLibrary` Reuse | **91.1%** [79.3%, 96.5%] | **2,398 ms** | **965** | **301** | **406** |
 
-### Key Empirical Findings
+### Per-Task Breakdown (Passes out of 3 runs)
 
-1. **Execution Beats Direct Generation (Hypothesis 1 Confirmed)**:
-   - Direct generation (Condition A: 80.0%) and fixed tool palettes (Condition B: 75.6%) repeatedly failed on sequence alignment tasks (DNA Levenshtein, identifier tokens) with `WRONG_OUTPUT`. JIT synthesis (Conditions C and D: 91.1%) solved these algorithmic tasks cleanly.
-2. **Self-Healing Loop Eliminates Timeouts (Hypothesis 2 Confirmed)**:
-   - Condition C improved pass rate over Condition C0 (91.1% vs 86.7%), eliminating all timeouts and policy blocks through compiler and sandbox error feedback.
-3. **Tool Reuse Cuts Latency and Cost by Over 50% (Hypothesis 3 Confirmed)**:
-   - Condition D maintained top-tier accuracy (91.1%) while reducing mean latency from 6,645ms to 2,398ms (**-63.9%**) and mean total tokens from 1,880 to 965 (**-48.7%**).
-   - Across all eligible family variants (b & c), Condition D achieved a **70.0% Reuse Hit Rate** with **100.0% Reuse Precision** (21/21 hits passed ground-truth validation).
-4. **Weak Baseline Tax (Hypothesis 4 Confirmed)**:
-   - The fixed static tool palette (Condition B) was the lowest-performing condition (75.6%) with the highest latency (8,146ms) and token bloat (3,291 tokens), proving that toy tools hinder rather than assist lightweight reasoning models.
+| Task ID | Family Domain | Condition A | Condition B | Condition C0 | Condition C | Condition D | Notes |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :--- |
+| `task_1a_markdown_employees` | Markdown Table Parsing | 3/3 | 3/3 | 2/3 | 3/3 | 3/3 | C0 failed 1x on timeout |
+| `task_1b_markdown_servers` | Markdown Table Parsing | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | Baseline A passes easily |
+| `task_1c_markdown_transactions` | Markdown Table Parsing | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | Baseline A passes easily |
+| `task_2a_levenshtein_dna` | Sequence Alignment | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | Complex backtracking; all failed |
+| `task_2b_levenshtein_tokens` | Sequence Alignment | **0/3** | **0/3** | **3/3** | **3/3** | **3/3** | **Strong separator** |
+| `task_2c_levenshtein_sentences` | Sequence Alignment | **0/3** | **0/3** | **3/3** | **2/3** | **2/3** | **Strong separator** |
+| `task_3a_dijkstra_city` | Turn-Penalty Dijkstra | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | Baseline A passes easily |
+| `task_3b_dijkstra_circuit` | Turn-Penalty Dijkstra | 3/3 | 2/3 | 1/3 | 3/3 | 3/3 | C0 failed 2x (timeout/policy) |
+| `task_3c_dijkstra_warehouse` | Turn-Penalty Dijkstra | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | Baseline A passes easily |
+| `task_4a_csv_sales` | CSV 2D Pivot Aggregation | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | Baseline A passes easily |
+| `task_4b_csv_telemetry` | CSV 2D Pivot Aggregation | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | Baseline A passes easily |
+| `task_4c_csv_grades` | CSV 2D Pivot Aggregation | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | Baseline A passes easily |
+| `task_5a_knapsack_cargo` | 0/1 Dual Knapsack | 3/3 | 2/3 | 3/3 | 3/3 | 3/3 | B failed 1x on tool exhaustion |
+| `task_5b_knapsack_payload` | 0/1 Dual Knapsack | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | Baseline A passes easily |
+| `task_5c_knapsack_cloud` | 0/1 Dual Knapsack | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | Baseline A passes easily |
+
+### Honest Analysis & Statistical Nuance
+
+1. **Observed Pass Rate Differences (C vs A)**:
+   - Condition C achieved **41/45 passes** (91.1%) vs Condition A's **36/45 passes** (80.0%).
+   - This represents an absolute difference of **5 extra passes out of 45 runs**.
+   - With 95% Wilson confidence intervals of **[79.3%, 96.5%] for C** and **[66.2%, 89.1%] for A**, these intervals overlap.
+   - Furthermore, because the 45 runs per condition represent 15 tasks evaluated across 3 repetitions rather than 45 independent tasks, true statistical uncertainty is wider than standard binomial intervals indicate.
+2. **Task Separability**:
+   - For 12 out of the 15 tasks (Markdown, Dijkstra city/warehouse, CSV pivot, Knapsack), the baseline direct generation (Condition A) achieved 3/3 passes. These tasks were within the model's direct in-context reasoning capacity and did not differentiate the conditions.
+   - The primary separator was **Family 2 (Sequence Alignment)**: Condition A and Condition B failed completely (0/3 on `task_2b` and 0/3 on `task_2c`), whereas synthesized code execution (C0, C, D) succeeded.
+3. **Condition D Amortization Depends on Shared Schemas**:
+   - Condition D reduced mean total tokens from 1,880 to 965 (**48.7% reduction**) and mean latency from 6,645ms to 2,398ms (**63.9% reduction**).
+   - Across eligible variants (b & c), it achieved a **70.0% Reuse Hit Rate** (21/30) with **100.0% Reuse Precision** (21/21 hits passed).
+   - *Constraint*: These savings depend on task variants within a family sharing input schemas and semantic objectives. In novel or heterogeneous task environments, reuse rates will naturally be lower.
+4. **Baseline B is a Simple Palette**:
+   - Condition B (75.6%) provided 5 basic utility tools (`math_calc`, `regex_match`, `json_path`, `string_slice`, `array_sort`). Because these tools cannot perform dynamic programming, Condition B functioned as a weak baseline for algorithmic tasks.
+5. **Lightweight Model Scope**:
+   - All results reflect a single lightweight model (`gemini-3.5-flash-lite`) over 15 tasks. They provide suggestive evidence for lightweight models rather than universal claims across 1T+ parameter frontier architectures.
 
 ---
 
@@ -187,6 +222,7 @@ AetherFlow operates a 4-layer defense-in-depth model verified by real mutation t
 │ Layer 1: Static AST Analysis (ASTVerifier)                                  │
 │   • Rejects eval, Function, import, require, process, __proto__             │
 │   • Rejects template literal & string concatenation property obfuscations   │
+│   • Permits benign while(true) loops containing reachable break/return      │
 └───────────────────────────────────────┬─────────────────────────────────────┘
                                         │
                                         ▼
@@ -221,7 +257,7 @@ AetherFlow operates a 4-layer defense-in-depth model verified by real mutation t
 
 ### Mutation Defense Verification Suite
 
-We do not merely write tests that pass; we systematically disable each defensive layer and verify that our test suite catches the vulnerability:
+Each defensive layer is verified by systematically disabling it and proving the test suite catches the vulnerability:
 
 ```bash
 # Verify all 9 Docker containment layers
@@ -255,7 +291,7 @@ See [SECURITY.md](SECURITY.md) for full attack vectors, threat analysis, and pro
 2. **Single-Node Execution in v0.1**:
    - The frozen v0.1 scope targets single-node local environments. Multi-node cluster orchestration and distributed memory synchronization remain experimental prototypes in `packages/core/src/experimental/`.
 3. **Synchronous Payload Serialization**:
-   - Input arguments and execution return values are serialized as JSON over standard I/O pipes. Massive binary payloads or non-serializable objects (e.g. Circular references, DOM handles) are not supported.
+   - Input arguments and execution return values are serialized as JSON over standard I/O pipes. Massive binary payloads or non-serializable objects (e.g. circular references, DOM handles) are not supported.
 4. **Lightweight Model Baseline**:
    - Evaluation was conducted on a lightweight model (`gemini-3.5-flash-lite`). Results are **suggestive, not universal** across 1T+ parameter frontier models on arbitrary production codebases.
 

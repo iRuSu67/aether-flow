@@ -1,6 +1,6 @@
 {
   "name": "@aether-flow/cli",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Command-line interface for the AetherFlow Autonomous Multi-Agent Engine",
   "bin": {
     "aether": "./dist/bin.js"
@@ -13,7 +13,7 @@
     "start": "node ./dist/bin.js"
   },
   "dependencies": {
-    "@aether-flow/core": "1.0.0"
+    "@aether-flow/core": "0.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
