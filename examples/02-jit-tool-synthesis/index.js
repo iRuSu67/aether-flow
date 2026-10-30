@@ -3,7 +3,11 @@ import { AetherKernel } from '@aether-flow/core';
 async function run() {
   console.log('⚡ [Showcase 2]: Just-In-Time (JIT) Dynamic Tool Synthesis & Sandbox Verification');
 
-  const kernel = new AetherKernel({ provider: 'mock' });
+  const apiKey = process.env.GEMINI_API_KEY;
+  const provider = apiKey ? 'gemini' : 'mock';
+  console.log(`Provider configured: [${provider}] ${apiKey ? '(live GEMINI_API_KEY detected)' : '(offline MockProvider)'}`);
+
+  const kernel = new AetherKernel({ provider, apiKey });
 
   console.log('\n1. Requesting dynamic synthesis of a custom mathematical variance tool...');
   
