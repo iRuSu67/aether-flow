@@ -274,6 +274,20 @@ test('MODEL CONFIGURATIONS & PROFILES: Verifies limits, thinking support, and pa
   assert.equal(flash38.rpd, 20);
   assert.equal(flash38.defaultDailyBudget, 18);
   assert.equal(flash38.minPacingMs, 13000);
+  assert.deepEqual(flash38.supportedThinkingLevels, ['low', 'medium', 'high']);
+  // Assert minimal is NOT in supportedThinkingLevels
+  assert.equal(flash38.supportedThinkingLevels.includes('minimal' as any), false);
+
+  // Assert client refuses minimal for 3.8 Flash
+  assert.throws(() => {
+    new EvalModelClient({
+      provider: 'mock',
+      model: 'gemini-3.8-flash',
+      thinkingLevel: 'minimal' as any,
+      cache: new ResponseCache('.eval_cache_test'),
+      limiter: new RateLimiter({ minPacingMs: 0 }),
+    });
+  }, /Invalid thinkingLevel "minimal" for model gemini-3.8-flash/);
 
   // 4. Gemma 4 (TPM-aware pacing, NO thinkingConfig)
   const gemma = getModelProfile('gemma-4-26b');

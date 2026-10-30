@@ -267,6 +267,18 @@ export class EvalHarness {
           results.push(runRes);
           this.checkpoint.record(runRes);
 
+          // Stop Condition: provider-error rate above 15% over the first 60 calls
+          if (this.limiter.apiCallsMade >= 60) {
+            const providerErrorCount = results.filter((r) => r.errorTaxonomy === 'PROVIDER_ERROR').length;
+            const rate = providerErrorCount / results.length;
+            if (rate > 0.15) {
+              stoppedEarly = true;
+              stopReason = `STOP CONDITION TRIGGERED: Provider-error rate is ${(rate * 100).toFixed(1)}% (> 15%) over ${this.limiter.apiCallsMade} calls (${providerErrorCount}/${results.length}). Refusing further execution.`;
+              console.error(`\n[CRITICAL STOP CONDITION] ${stopReason}`);
+              break executionLoop;
+            }
+          }
+
           const statusIcon =
             runRes.errorTaxonomy === 'PROVIDER_ERROR'
               ? '⚠️ PROVIDER_ERROR'
@@ -291,6 +303,7 @@ export class EvalHarness {
     // Save strictly isolated results file per model
     const sanitizedModel = this.options.model.replace(/[^a-zA-Z0-9_-]/g, '_');
     const resultsFile = `eval_results_${sanitizedModel}.json`;
+    const datedResultsFile = path.join('eval', 'results', `${summary.methodology.evaluationDate}.json`);
     try {
       const outputPayload = {
         model: this.options.model,
@@ -305,6 +318,9 @@ export class EvalHarness {
         results,
       };
       fs.writeFileSync(path.resolve(process.cwd(), resultsFile), JSON.stringify(outputPayload, null, 2), 'utf8');
+      const datedPath = path.resolve(process.cwd(), datedResultsFile);
+      fs.mkdirSync(path.dirname(datedPath), { recursive: true });
+      fs.writeFileSync(datedPath, JSON.stringify(outputPayload, null, 2), 'utf8');
     } catch {
       // Non-fatal
     }

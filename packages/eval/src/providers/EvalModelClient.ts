@@ -30,6 +30,8 @@ export interface SmokeTestResult {
   model: string;
   thinkingLevel: string;
   tokenUsage: TokenUsage;
+  rawUsageMetadata?: unknown;
+  requestBody: unknown;
   responseShape: {
     candidatesCount: number;
     finishReason?: string;
@@ -47,7 +49,7 @@ export class EvalModelClient {
   private openaiBaseUrl?: string;
   private allowLive: boolean;
   public readonly supportsThinking: boolean;
-  public readonly maxOutputTokens: number;
+  public readonly maxOutputTokens?: number;
 
   constructor(options: {
     provider: 'mock' | 'gemini' | 'ollama' | 'openai';
@@ -67,6 +69,16 @@ export class EvalModelClient {
     this.maxOutputTokens = profile.maxOutputTokens;
     this.apiKey = options.apiKey || process.env.GEMINI_API_KEY || '';
     this.thinkingLevel = options.thinkingLevel ?? profile.defaultThinkingLevel;
+
+    if (
+      profile.supportedThinkingLevels &&
+      !profile.supportedThinkingLevels.includes(this.thinkingLevel)
+    ) {
+      throw new Error(
+        `Invalid thinkingLevel "${this.thinkingLevel}" for model ${this.model}. Supported levels: ${profile.supportedThinkingLevels.join(', ')}.`
+      );
+    }
+
     this.cache = options.cache;
     this.limiter = options.limiter;
     this.openaiBaseUrl = options.openaiBaseUrl || process.env.OPENAI_BASE_URL;
@@ -216,9 +228,11 @@ export class EvalModelClient {
             data.usageMetadata?.thoughtsTokenCount ??
             data.usageMetadata?.candidatesTokenDetails?.[0]?.thinkingTokenCount ??
             0;
-          const totalCandidates = data.usageMetadata?.candidatesTokenCount || 0;
-          const outputTokens = Math.max(0, totalCandidates - thinkingTokens);
-          const totalTokens = data.usageMetadata?.totalTokenCount || promptTokens + totalCandidates;
+          // Output tokens are candidatesTokenCount directly (never subtract thinking tokens)
+          const outputTokens = data.usageMetadata?.candidatesTokenCount || 0;
+          const totalTokens =
+            data.usageMetadata?.totalTokenCount ||
+            (promptTokens + outputTokens + thinkingTokens);
 
           const tokens: TokenUsage = {
             promptTokens,
@@ -383,14 +397,16 @@ export class EvalModelClient {
       };
     }
 
+    const bodyPayload = {
+      contents: [{ role: 'user', parts: [{ text: 'Respond with OK' }] }],
+      generationConfig,
+    };
+
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.apiKey}`;
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: 'Respond with OK' }] }],
-        generationConfig,
-      }),
+      body: JSON.stringify(bodyPayload),
     });
 
     if (!response.ok) {
@@ -422,6 +438,9 @@ export class EvalModelClient {
         candidatesTokenCount?: number;
         totalTokenCount?: number;
         thoughtsTokenCount?: number;
+        candidatesTokenDetails?: Array<{
+          thinkingTokenCount?: number;
+        }>;
       };
     };
 
@@ -429,10 +448,14 @@ export class EvalModelClient {
     const parts = candidate?.content?.parts || [];
     const text = parts.map((p) => p.text || '').join('\n').trim();
     const promptTokens = data.usageMetadata?.promptTokenCount || 0;
-    const thinkingTokens = data.usageMetadata?.thoughtsTokenCount || 0;
-    const totalCandidates = data.usageMetadata?.candidatesTokenCount || 0;
-    const outputTokens = Math.max(0, totalCandidates - thinkingTokens);
-    const totalTokens = data.usageMetadata?.totalTokenCount || promptTokens + totalCandidates;
+    const thinkingTokens =
+      data.usageMetadata?.thoughtsTokenCount ??
+      data.usageMetadata?.candidatesTokenDetails?.[0]?.thinkingTokenCount ??
+      0;
+    const outputTokens = data.usageMetadata?.candidatesTokenCount || 0;
+    const totalTokens =
+      data.usageMetadata?.totalTokenCount ||
+      (promptTokens + outputTokens + thinkingTokens);
 
     return {
       httpStatus: response.status,
@@ -440,6 +463,8 @@ export class EvalModelClient {
       model: this.model,
       thinkingLevel: this.supportsThinking ? this.thinkingLevel : 'none (unsupported)',
       tokenUsage: { promptTokens, thinkingTokens, outputTokens, totalTokens },
+      rawUsageMetadata: data.usageMetadata,
+      requestBody: bodyPayload,
       responseShape: {
         candidatesCount: data.candidates?.length || 0,
         finishReason: candidate?.finishReason,

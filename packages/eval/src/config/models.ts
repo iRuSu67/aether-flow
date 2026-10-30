@@ -8,7 +8,8 @@ export interface ModelProfile {
   minPacingMs: number;
   supportsThinking: boolean;
   defaultThinkingLevel: 'low' | 'medium' | 'high';
-  maxOutputTokens: number;
+  supportedThinkingLevels?: Array<'minimal' | 'low' | 'medium' | 'high'>;
+  maxOutputTokens?: number;
   isStable: boolean;
   isLightweight: boolean;
   docUrl: string;
@@ -28,6 +29,7 @@ export const MODEL_PROFILES: Record<string, ModelProfile> = {
     minPacingMs: 4500, // ~4.5s pacing
     supportsThinking: true,
     defaultThinkingLevel: 'medium',
+    supportedThinkingLevels: ['minimal', 'low', 'medium', 'high'],
     maxOutputTokens: 65536,
     isStable: true,
     isLightweight: true,
@@ -44,6 +46,7 @@ export const MODEL_PROFILES: Record<string, ModelProfile> = {
     minPacingMs: 4500,
     supportsThinking: true,
     defaultThinkingLevel: 'medium',
+    supportedThinkingLevels: ['minimal', 'low', 'medium', 'high'],
     maxOutputTokens: 65536,
     isStable: true,
     isLightweight: true,
@@ -60,11 +63,12 @@ export const MODEL_PROFILES: Record<string, ModelProfile> = {
     minPacingMs: 13000, // 13s pacing
     supportsThinking: true,
     defaultThinkingLevel: 'medium',
+    supportedThinkingLevels: ['low', 'medium', 'high'], // 'minimal' is NOT supported on 3.8 Flash!
     maxOutputTokens: 65536,
     isStable: true,
     isLightweight: false,
     docUrl: 'https://ai.google.dev/gemini-api/docs/models#gemini-3.8-flash',
-    description: 'Gemini 3.8 Flash (reasoning model): 5 RPM, 250K TPM, 20 RPD',
+    description: 'Gemini 3.8 Flash (reasoning model): 5 RPM, 250K TPM, 20 RPD, supports low/medium/high thinking (minimal is unsupported)',
   },
   'gemma-4-26b': {
     model: 'gemma-4-26b',
@@ -76,8 +80,7 @@ export const MODEL_PROFILES: Record<string, ModelProfile> = {
     minPacingMs: 7500, // TPM-aware pacing for 16K TPM limit (~8 calls/min max)
     supportsThinking: false, // Gemma does NOT support thinkingLevel
     defaultThinkingLevel: 'low',
-    maxOutputTokens: 8192,
-    isStable: true,
+    isStable: false, // Community open model; GA status unverified in AI Studio table
     isLightweight: true,
     docUrl: 'https://ai.google.dev/gemma',
     description: 'Gemma 4 26B: 30 RPM, 16K TPM (TPM-aware 7.5s pacing), 14.4K RPD, thinkingConfig disabled',
@@ -92,8 +95,7 @@ export const MODEL_PROFILES: Record<string, ModelProfile> = {
     minPacingMs: 7500, // TPM-aware pacing for 16K TPM limit
     supportsThinking: false,
     defaultThinkingLevel: 'low',
-    maxOutputTokens: 8192,
-    isStable: true,
+    isStable: false,
     isLightweight: true,
     docUrl: 'https://ai.google.dev/gemma',
     description: 'Gemma 4 31B: 30 RPM, 16K TPM (TPM-aware 7.5s pacing), 14.4K RPD, thinkingConfig disabled',

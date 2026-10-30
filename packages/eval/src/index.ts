@@ -103,13 +103,26 @@ async function main() {
     console.log('Executing single smoke call ("Respond with OK")...\n');
     const result = await client.executeSmokeCall();
     console.log('----------------------------------------------------------------');
+    console.log('REDACTED REQUEST BODY (Sent to Google Gemini API):');
+    console.log(JSON.stringify(result.requestBody, null, 2));
+    console.log('----------------------------------------------------------------');
     console.log(`HTTP Status:    ${result.httpStatus} ${result.statusText}`);
     console.log(`Model:          ${result.model}`);
     console.log(`Thinking Level: ${result.thinkingLevel}`);
-    console.log(`Prompt Tokens:  ${result.tokenUsage.promptTokens}`);
-    console.log(`Thinking Tokens:${result.tokenUsage.thinkingTokens}`);
-    console.log(`Output Tokens:  ${result.tokenUsage.outputTokens}`);
-    console.log(`Total Tokens:   ${result.tokenUsage.totalTokens}`);
+    console.log('RAW usageMetadata:');
+    console.log(JSON.stringify(result.rawUsageMetadata, null, 2));
+    console.log('PARSED TOKEN USAGE:');
+    console.log(`  Prompt Tokens:   ${result.tokenUsage.promptTokens}`);
+    console.log(`  Thinking Tokens: ${result.tokenUsage.thinkingTokens}`);
+    console.log(`  Output Tokens:   ${result.tokenUsage.outputTokens} (from candidatesTokenCount)`);
+    console.log(`  Total Tokens:    ${result.tokenUsage.totalTokens}`);
+    const tokenSum =
+      result.tokenUsage.promptTokens +
+      result.tokenUsage.outputTokens +
+      result.tokenUsage.thinkingTokens;
+    console.log(
+      `  Token Math:      ${result.tokenUsage.promptTokens} (prompt) + ${result.tokenUsage.outputTokens} (output) + ${result.tokenUsage.thinkingTokens} (thinking) = ${tokenSum} (API totalTokenCount: ${result.tokenUsage.totalTokens})`
+    );
     console.log(`Finish Reason:  ${result.responseShape.finishReason ?? 'STOP'}`);
     console.log(`Response Text:  ${JSON.stringify(result.responseShape.preview)}`);
     console.log('----------------------------------------------------------------');

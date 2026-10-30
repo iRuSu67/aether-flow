@@ -249,24 +249,38 @@ Every API turn captures:
 The evaluation harness supports configurable, per-model rate limits, token quotas, and pacing intervals. By default, the benchmark targets Google's lightweight, high-throughput model: **Gemini 3.5 Flash-Lite** (`gemini-3.5-flash-lite`).
 
 #### Verified Model Specifications (Official Google Documentation)
-*Official Documentation: [Google AI for Developers - Models](https://ai.google.dev/gemini-api/docs/models#gemini-3.5-flash-lite)*
+*Official Documentation References:*
+- [Google AI Models Reference (Gemini 3.5 Flash Lite)](https://ai.google.dev/gemini-api/docs/models#gemini-3.5-flash-lite)
+- [Google AI Models Reference (Gemini 3.8 Flash)](https://ai.google.dev/gemini-api/docs/models#gemini-3.8-flash)
+- [Google AI Models Free-Tier Overview](https://ai.google.dev/gemini-api/docs/models)
+- [Gemma Open Models Documentation](https://ai.google.dev/gemma)
 
-| Model Identifier | Release Status | Input / Output Limit | RPM | TPM | RPD | Daily Budget | Min Pacing | Thinking Support | Default Role |
+| Model Identifier | Release Status | Context Window / Max Output | RPM | TPM | RPD | Daily Budget | Min Pacing | Supported Thinking Levels | Official Documentation URL |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
-| **`gemini-3.5-flash-lite`** | **Stable (GA)** | 1,048,576 / 65,536 | **15** | **250,000** | **500** | **450** | **~4.5s** | Yes (`minimal` - `high`) | **Main Benchmark Run (Default)** |
-| `gemini-3.1-flash-lite` | Stable (GA) | 1,048,576 / 65,536 | 15 | 250,000 | 500 | 450 | ~4.5s | Yes (`minimal` - `high`) | Fallback Lightweight Model |
-| `gemini-3.8-flash` | Stable (GA) | 1,048,576 / 65,536 | 5 | 250,000 | 20 | 18 | 13.0s | Yes (`medium`) | Optional Reasoning Spot-Check |
-| `gemma-4-26b` / `31b` | Stable (GA) | 131,072 / 8,192 | 30 | 16,000 | 14,400 | 10,000 | 7.5s (TPM-paced) | No (`thinkingConfig` omitted) | Optional Open-Weight Run |
+| **`gemini-3.5-flash-lite`** | **Stable (GA)** | 1,048,576 / 65,536 | **15** | **250,000** | **500** | **450** | **~4.5s** | `minimal`, `low`, `medium`, `high` | [Google AI Models](https://ai.google.dev/gemini-api/docs/models#gemini-3.5-flash-lite) |
+| `gemini-3.1-flash-lite` | Stable (GA) | 1,048,576 / 65,536 | 15 | 250,000 | 500 | 450 | ~4.5s | `minimal`, `low`, `medium`, `high` | [Google AI Models](https://ai.google.dev/gemini-api/docs/models#gemini-3.1-flash-lite) |
+| `gemini-3.8-flash` | Stable (GA) | 1,048,576 / 65,536 | 5 | 250,000 | 20 | 18 | 13.0s | `low`, `medium`, `high` (`minimal` is unsupported) | [Google AI Models](https://ai.google.dev/gemini-api/docs/models#gemini-3.8-flash) |
+| `gemma-4-26b` / `31b` | Community Open | Unverified / Unverified | 30 | 16,000 | 14,400 | 10,000 | 7.5s (TPM-paced) | None (`thinkingConfig` unsupported) | [Google Gemma](https://ai.google.dev/gemma) |
+
+#### Token Accounting Semantics (Official `usageMetadata`)
+Token consumption is reported strictly from Google's official `usageMetadata` response object:
+1. `promptTokenCount`: Total input tokens consumed by the prompt and system instruction.
+2. `candidatesTokenCount`: Total output tokens in the generated response (candidate). Per Google documentation, `candidatesTokenCount` measures visible candidate tokens and is recorded directly as `outputTokens` (thinking tokens are never subtracted).
+3. `thoughtsTokenCount`: Internal reasoning tokens generated during thinking. Recorded separately as `thinkingTokens`.
+4. `totalTokenCount`: Total billed token count, satisfying `totalTokenCount == promptTokenCount + candidatesTokenCount + thoughtsTokenCount`.
 
 #### Pacing & Thinking Configuration Details
 1. **Lightweight Default (`gemini-3.5-flash-lite`):**
    - **Throughput & Limits:** 15 RPM, 250K TPM, and 500 requests/day.
    - **Pacing:** Paced at a minimum interval of **~4.5 seconds** between requests (`Math.max(4500, Math.ceil(60000 / rpm))`), avoiding burst-induced 429s.
    - **Thinking Support:** Natively supports internal reasoning via `thinking_config` (`thinking_level: 'minimal' | 'low' | 'medium' | 'high'`). When deploying on multi-step coding/synthesis tasks, `medium` is configured to prevent premature tool termination.
-2. **Gemma 4 TPM-Aware Pacing:**
+   - **Payload Configuration:** Requests strictly omit deprecated or unsupported parameters: no `temperature`, no `top_p`, no `top_k`, and no `thinkingBudget`.
+2. **Reasoning Model Thinking Levels (`gemini-3.8-flash`):**
+   - Per official Gemini API documentation, `gemini-3.8-flash` supports `low`, `medium`, and `high` thinking levels. It does **not** support `minimal` (attempting to set `minimal` produces an API error).
+3. **Gemma 4 TPM-Aware Pacing:**
    - Gemma models operate with a strict **16,000 TPM** limit. To avoid token exhaustion on multi-turn code synthesis (which typically consumes 1,500–2,000 tokens per interaction), requests are paced at **$\ge 7.5$ seconds** ($\le 8$ requests/min).
    - **Thinking Omission:** Gemma models do not support `thinking_level`. The harness inspects `profile.supportsThinking` and strictly omits `thinkingConfig` from API request payloads.
-3. **Per-Model Daily Quota Isolation:**
+4. **Per-Model Daily Quota Isolation:**
    - The daily budget tracker (`.eval_daily_budget.json`) is keyed by **model identifier** and **Pacific calendar date** (`YYYY-MM-DD`).
    - If `gemini-3.8-flash` exhausts its 20 RPD daily quota, its `blockedUntil` state applies strictly to `gemini-3.8-flash`; `gemini-3.5-flash-lite` continues unaffected on its independent 500 RPD pool.
    - Reset times are calculated relative to Pacific midnight and displayed in local Casablanca time (**08:00 AM GMT+1** during PDT).
