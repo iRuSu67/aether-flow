@@ -1,5 +1,8 @@
 # Hegelian Dialectic Consensus Engine
 
+> [!WARNING]
+> **Experimental / Unverified Feature**: The Hegelian consensus engine and multi-agent triadic debate loop described in this document are speculative research prototypes located under `packages/core/src/experimental/`. They are **NOT** part of the verified v0.1 release scope, benchmark claims, or security guarantees.
+
 Single-agent systems and linear agent pipelines suffer from **compounding error cascades**: if the first agent makes a false assumption or hallucinates a parameter, downstream agents treat it as ground truth, leading to catastrophic failure.
 
 AetherFlow integrates a formal Hegelian dialectic loop to ensure multi-agent consensus before plan execution:

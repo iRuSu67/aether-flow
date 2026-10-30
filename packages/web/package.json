@@ -1,6 +1,6 @@
 {
   "name": "@aether-flow/web",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Visual Cognitive Canvas and Real-time Swarm Inspector for AetherFlow",
   "type": "module",
   "main": "server.js",
@@ -9,6 +9,6 @@
     "dev": "node server.js"
   },
   "dependencies": {
-    "@aether-flow/core": "1.0.0"
+    "@aether-flow/core": "0.1.0"
   }
 }

@@ -7,7 +7,7 @@ export async function startRepl() {
   console.log('\x1b[36m\x1b[1m');
   console.log('╔════════════════════════════════════════════════════════════════╗');
   console.log('║       🌌 AETHERFLOW INTERACTIVE COGNITIVE TERMINAL (REPL)      ║');
-  console.log('║  Type any objective or slash commands: /mcts, /tools, /eval    ║');
+  console.log('║  Type any objective or slash commands: /tools, /audit, /synth  ║');
   console.log('╚════════════════════════════════════════════════════════════════╝');
   console.log('\x1b[0m');
 
@@ -54,29 +54,26 @@ export async function startRepl() {
       return;
     }
 
-    if (input === '/eval') {
-      console.log('\x1b[33mRunning head-to-head model arena match...\x1b[0m');
-      const match = kernel.arena.evaluateMatch(
-        'Prove Fermat-Euler Theorem',
-        'Google Gemini 1.5 Pro',
-        'Step-by-step modular arithmetic proof with inductive closure...',
-        120,
-        'OpenAI GPT-4o',
-        'Direct proof via group theory Lagrange theorem...',
-        145
-      );
-      console.log(`\x1b[32mWinner: ${match.winner}\x1b[0m (Verdict: ${match.verdictExplanation})`);
+    if (input.startsWith('/synth ')) {
+      const toolName = input.slice(7).trim() || 'data_parser';
+      console.log(`\x1b[33mSynthesizing JIT tool "${toolName}"...\x1b[0m`);
+      const result = await kernel.synthesizeTool({
+        toolName,
+        purpose: `Data computation for ${toolName}`,
+        inputSpecification: [{ name: 'input', type: 'string', description: 'Input value' }],
+        expectedOutput: 'Computed result',
+      });
+      if (result.success && result.tool) {
+        console.log(`\x1b[32m✔ JIT Tool "${result.tool.name}" synthesized & verified in sandbox!\x1b[0m`);
+      } else {
+        console.log(`\x1b[31m✖ Synthesis failed: ${result.error}\x1b[0m`);
+      }
       rl.prompt();
       return;
     }
 
-    if (input.startsWith('/mcts ')) {
-      const goal = input.slice(6);
-      console.log(`\x1b[34mExecuting Monte Carlo Tree Search for: "${goal}"...\x1b[0m`);
-      const mcts = await kernel.searchMCTS(goal);
-      console.log(`\x1b[32m✔ MCTS Completed in ${mcts.searchDurationMs.toFixed(1)}ms (${mcts.totalNodesExplored} nodes explored)\x1b[0m`);
-      console.log('\x1b[36mOptimal Trajectory:\x1b[0m');
-      mcts.bestTrajectory.forEach((step: string, i: number) => console.log(`  [Step ${i + 1}] ${step}`));
+    if (input === '/eval' || input.startsWith('/mcts')) {
+      console.log('\x1b[33mNote: /eval and /mcts have been quarantined to @aether-flow/core/experimental in frozen v0.1 scope.\x1b[0m');
       rl.prompt();
       return;
     }

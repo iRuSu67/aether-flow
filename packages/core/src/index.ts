@@ -1,6 +1,6 @@
 /**
  * @aether-flow/core
- * Autonomous Multi-Agent Microkernel & Real-Time Cognitive Operating System
+ * Verified Sandbox + Dynamic Tool Synthesis Loop for LLM-Generated Code
  */
 
 export * from './types.js';
@@ -15,32 +15,21 @@ export * from './tools/ToolRegistry.js';
 export * from './tools/ToolForge.js';
 export * from './tools/ASTVerifier.js';
 export * from './tools/search/WebSearchEngine.js';
-export * from './consensus/HegelianEngine.js';
-export * from './swarm/SpeculativeEngine.js';
-export * from './reasoning/MCTSEngine.js';
 export * from './formal/SymbolicSolver.js';
 export * from './compiler/Lexer.js';
 export * from './compiler/Parser.js';
 export * from './compiler/Interpreter.js';
 export * from './storage/CheckpointEngine.js';
-export * from './multimodal/VisionPerception.js';
-export * from './multimodal/AudioPerception.js';
-export * from './cluster/CRDTStore.js';
 export * from './memory/VectorMemory.js';
 export * from './memory/KnowledgeGraph.js';
 export * from './memory/SkillRegistry.js';
-export * from './evaluation/ArenaJudge.js';
-export * from './mcp/types.js';
-export * from './mcp/MCPClient.js';
-export * from './mcp/MCPHub.js';
 export * from './guardrails/SecurityFirewall.js';
-export * from './evolution/GeneticOptimizer.js';
-export * from './computer/BrowserAgent.js';
-export * from './cluster/ClusterNode.js';
-export * from './voice/VoiceKernel.js';
 export * from './agents/BaseAgent.js';
 export * from './agents/ArchitectAgent.js';
 export * from './agents/CriticAgent.js';
 export * from './agents/SynthesizerAgent.js';
 export * from './agents/ExecutorAgent.js';
 export * from './telemetry/WebSocketServer.js';
+
+// Non-core modules quarantined in experimental namespace
+export * as experimental from './experimental/index.js';

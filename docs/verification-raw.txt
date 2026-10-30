@@ -1,0 +1,401 @@
+> aether-flow-monorepo@0.1.0 test
+> npm run test --workspaces --if-present
+
+
+> @aether-flow/core@0.1.0 test
+> node --test --test-concurrency=1 dist/**/*.test.js
+
+Γ£ö Sandbox executes JS code securely in Docker mode and captures logs (15188.4551ms)
+Γ£ö ToolRegistry executes pre-registered tools [sample-value check on text_analyzer] (1.7493ms)
+Γ£ö VectorMemory embeds, inserts, and retrieves nearest neighbors (1.8575ms)
+Γ£ö KnowledgeGraph connects entities and computes BFS shortest paths (3.825ms)
+Γ£ö SecurityFirewall blocks malicious injections and masks PII (4.4421ms)
+Γ£ö SymbolicSolver proves SAT satisfiability and validates numeric bounds (1.5147ms)
+Γ£ö FlowScript Compiler tokenizes and parses .flow DSL script into AST (2.6349ms)
+Γ£ö CheckpointEngine snapshots state and creates divergent time-travel forks (0.8184ms)
+Γ£ö AetherKernel synthesizes and verifies a dynamic tool in Sandbox [MockProvider] (2544.0392ms)
+Γ£ö AetherKernel end-to-end goal execution with plan synthesis and verified execution [MockProvider] (2842.7417ms)
+  [MODE: static-ast] ASTVerifier blocks prototype constructor chain breakout
+  [MODE: static-ast] ASTVerifier blocks computed string concatenation constructor evasion
+  [MODE: static-ast] ASTVerifier blocks template literal constructor evasion
+  [MODE: static-ast] ASTVerifier blocks prototype pollution via __proto__
+  [MODE: static-ast] ASTVerifier blocks dynamic import expressions
+  [MODE: static-ast] ASTVerifier blocks eval and new Function identifiers
+  [MODE: static-ast] ASTVerifier blocks static while(true) infinite loops
+  [MODE: static-ast] ASTVerifier permits while(true) with break or return
+  [MODE: subprocess+docker] Known AST bypass: computed key via Array.join
+[SECURITY WARNING] Running Sandbox in insecure subprocess mode. OS-level network isolation is disabled!
+Γ£ö ASTVerifier blocks prototype constructor chain breakout (18.5118ms)
+Γ£ö ASTVerifier blocks computed string concatenation constructor evasion (2.9825ms)
+Γ£ö ASTVerifier blocks template literal constructor evasion (2.8058ms)
+Γ£ö ASTVerifier blocks prototype pollution via __proto__ (3.7688ms)
+Γ£ö ASTVerifier blocks dynamic import expressions (2.2244ms)
+Γ£ö ASTVerifier blocks eval and new Function identifiers (1.9092ms)
+Γ£ö ASTVerifier blocks static while(true) infinite loops (2.4731ms)
+Γ£ö ASTVerifier permits while(true) loop with reachable break or return statement (4.4135ms)
+  [MODE: subprocess+docker] Known AST bypass: Reflect.get with String.fromCharCode
+[SECURITY WARNING] Running Sandbox in insecure subprocess mode. OS-level network isolation is disabled!
+Γ£ö Known AST bypass: computed key via Array.join is missed by AST but contained by Sandbox (1280.7759ms)
+  [MODE: contract-check] Sandbox fails closed: subprocess mode without unsafeDevMode throws
+  [MODE: subprocess] Sandbox blocks prototype constructor chain breakout
+[SECURITY WARNING] Running Sandbox in insecure subprocess mode. OS-level network isolation is disabled!
+Γ£ö Known AST bypass: Reflect.get with String.fromCharCode is missed by AST but contained by Sandbox (1177.8457ms)
+Γ£ö Sandbox fails closed: subprocess mode without unsafeDevMode throws immediately (3.4339ms)
+  [MODE: subprocess] Sandbox blocks args.constructor.constructor breakout
+[SECURITY WARNING] Running Sandbox in insecure subprocess mode. OS-level network isolation is disabled!
+Γ£ö [subprocess] Sandbox blocks prototype constructor chain breakout (125.6271ms)
+  [MODE: subprocess] Sandbox blocks eval() via engine-level string compilation disallowance
+[SECURITY WARNING] Running Sandbox in insecure subprocess mode. OS-level network isolation is disabled!
+Γ£ö [subprocess] Sandbox blocks args.constructor.constructor breakout (118.4615ms)
+  [MODE: subprocess] Sandbox environment is clean: host process.env is inaccessible in VM
+[SECURITY WARNING] Running Sandbox in insecure subprocess mode. OS-level network isolation is disabled!
+Γ£ö [subprocess] Sandbox blocks eval() via engine-level string compilation disallowance (117.5807ms)
+  [MODE: subprocess] Sandbox strips host environment variables (no host secrets accessible)
+[SECURITY WARNING] Running Sandbox in insecure subprocess mode. OS-level network isolation is disabled!
+Γ£ö [subprocess] Sandbox environment is clean: host process.env is inaccessible in VM (114.4033ms)
+  [MODE: subprocess] Sandbox blocks filesystem read outside sandbox (fs / require)
+[SECURITY WARNING] Running Sandbox in insecure subprocess mode. OS-level network isolation is disabled!
+Γ£ö [subprocess] Sandbox strips host environment variables (no host secrets accessible) (115.9837ms)
+  [MODE: subprocess] Sandbox blocks outbound network connection attempts (fetch / net)
+[SECURITY WARNING] Running Sandbox in insecure subprocess mode. OS-level network isolation is disabled!
+Γ£ö [subprocess] Sandbox blocks filesystem read outside sandbox (fs / require) (162.0998ms)
+  [MODE: subprocess] Sandbox blocks access to process.binding and process.mainModule
+[SECURITY WARNING] Running Sandbox in insecure subprocess mode. OS-level network isolation is disabled!
+Γ£ö [subprocess] Sandbox blocks outbound network connection attempts (fetch / net) (127.8006ms)
+  [MODE: subprocess] Sandbox output caps terminate execution on unbounded output flooding
+[SECURITY WARNING] Running Sandbox in insecure subprocess mode. OS-level network isolation is disabled!
+Γ£ö [subprocess] Sandbox blocks access to process.binding and process.mainModule (115.8679ms)
+  [MODE: subprocess] Sandbox fails safely when return value exceeds maximum result size
+[SECURITY WARNING] Running Sandbox in insecure subprocess mode. OS-level network isolation is disabled!
+Γ£ö [subprocess] Sandbox output caps terminate execution on unbounded output flooding (123.9024ms)
+  [MODE: subprocess] Sandbox hard timeout terminates synchronous CPU infinite loop
+[SECURITY WARNING] Running Sandbox in insecure subprocess mode. OS-level network isolation is disabled!
+Γ£ö [subprocess] Sandbox fails safely when return value exceeds maximum result size (126.868ms)
+  [MODE: subprocess] Sandbox hard timeout terminates asynchronous microtask loop
+[SECURITY WARNING] Running Sandbox in insecure subprocess mode. OS-level network isolation is disabled!
+Γ£ö [subprocess] Sandbox hard timeout terminates synchronous CPU infinite loop (797.7245ms)
+  [MODE: subprocess] Sandbox caps heap memory and fails safely on memory exhaustion attempt
+[SECURITY WARNING] Running Sandbox in insecure subprocess mode. OS-level network isolation is disabled!
+Γ£ö [subprocess] Sandbox hard timeout terminates asynchronous microtask loop (819.9547ms)
+  [MODE: subprocess] VM Context Realm Isolation: sandboxed code cannot mutate runner prototypes
+[SECURITY WARNING] Running Sandbox in insecure subprocess mode. OS-level network isolation is disabled!
+Γ£ö [subprocess] Sandbox caps heap memory and fails safely on memory exhaustion attempt (370.4977ms)
+  [MODE: docker] Sandbox blocks prototype constructor chain breakout
+Γ£ö [subprocess] VM Context Realm Isolation: sandboxed code cannot mutate runner JSON.stringify, Array.prototype, or Object.prototype (150.8731ms)
+  [MODE: docker] Sandbox blocks args.constructor.constructor breakout
+Γ£ö [docker] Sandbox blocks prototype constructor chain breakout (1235.6026ms)
+  [MODE: docker] Sandbox blocks eval() via engine-level string compilation disallowance
+Γ£ö [docker] Sandbox blocks args.constructor.constructor breakout (1051.5025ms)
+  [MODE: docker] Sandbox environment is clean: host process.env is inaccessible in VM
+Γ£ö [docker] Sandbox blocks eval() via engine-level string compilation disallowance (1134.5576ms)
+  [MODE: docker] Sandbox strips host environment variables (no host secrets accessible)
+Γ£ö [docker] Sandbox environment is clean: host process.env is inaccessible in VM (1648.8345ms)
+  [MODE: docker] Sandbox blocks filesystem read outside sandbox (fs / require)
+Γ£ö [docker] Sandbox strips host environment variables (no host secrets accessible) (1096.5642ms)
+  [MODE: docker] Sandbox blocks outbound network connection attempts (fetch / net)
+Γ£ö [docker] Sandbox blocks filesystem read outside sandbox (fs / require) (1126.0494ms)
+  [MODE: docker] Sandbox blocks access to process.binding and process.mainModule
+Γ£ö [docker] Sandbox blocks outbound network connection attempts (fetch / net) (1071.3427ms)
+  [MODE: docker] Sandbox output caps terminate execution on unbounded output flooding
+Γ£ö [docker] Sandbox blocks access to process.binding and process.mainModule (1046.1876ms)
+  [MODE: docker] Sandbox fails safely when return value exceeds maximum result size
+Γ£ö [docker] Sandbox output caps terminate execution on unbounded output flooding (1213.0559ms)
+  [MODE: docker] Sandbox hard timeout terminates synchronous CPU infinite loop
+Γ£ö [docker] Sandbox fails safely when return value exceeds maximum result size (1081.4597ms)
+  [MODE: docker] Sandbox hard timeout terminates asynchronous microtask loop
+Γ£ö [docker] Sandbox hard timeout terminates synchronous CPU infinite loop (2157.903ms)
+  [MODE: docker] Sandbox caps heap memory and fails safely on memory exhaustion attempt
+Γ£ö [docker] Sandbox hard timeout terminates asynchronous microtask loop (1967.0365ms)
+  [MODE: docker] VM Context Realm Isolation: sandboxed code cannot mutate runner prototypes
+Γ£ö [docker] Sandbox caps heap memory and fails safely on memory exhaustion attempt (1141.108ms)
+  [MODE: docker] Docker network isolation Test 1: Real flag list cannot connect to host TCP listener
+  [MODE: docker] Docker network isolation Test 2 (control): Omitting --network none MUST connect to host listener
+Γ£ö [docker] VM Context Realm Isolation: sandboxed code cannot mutate runner JSON.stringify, Array.prototype, or Object.prototype (970.2535ms)
+Γ£ö Docker network isolation Test 1: Real flag list cannot connect to host TCP listener (0 connections) (967.1598ms)
+  [MODE: docker] Docker probe: container runs as non-root user node (uid 1000)
+  [MODE: docker] Docker probe: container filesystem is strictly read-only
+  [MODE: docker] Docker probe: container Linux capabilities are dropped
+  [MODE: docker] Docker probe: container pids limit is enforced
+  [MODE: docker] Docker probe: container memory limit is enforced
+  [MODE: docker] Docker mode host-side stderr flooding is terminated by output limit cap
+Γ£ö Docker network isolation Test 2 (control): Omitting --network none MUST connect to host listener (1123.4236ms)
+Γ£ö Docker probe: container runs as non-root user node (uid 1000) (759.0365ms)
+Γ£ö Docker probe: container filesystem is strictly read-only (touch /x fails) (759.9363ms)
+Γ£ö Docker probe: container Linux capabilities are dropped (CapBnd is 0) (723.1894ms)
+Γ£ö Docker probe: container pids limit is enforced (pids.max is 64) (782.4528ms)
+Γ£ö Docker probe: container memory limit is enforced (memory.max matches 64MB) (752.7022ms)
+  [MODE: docker] Docker container is killed and removed after timeout
+Γ£ö Docker mode host-side stderr flooding is terminated by output limit cap (1054.8907ms)
+  [MODE: subprocess+docker] ArrayBuffer memory bomb analysis: timeout vs memory cap in each mode
+[SECURITY WARNING] Running Sandbox in insecure subprocess mode. OS-level network isolation is disabled!
+Γ£ö Docker container is killed and removed after timeout (verified via docker ps -a) (1513.2118ms)
+Γ£ö ArrayBuffer memory bomb analysis: timeout vs memory cap in each mode (4467.5892ms)
+Γä╣ tests 59
+Γä╣ suites 0
+Γä╣ pass 59
+Γä╣ fail 0
+Γä╣ cancelled 0
+Γä╣ skipped 0
+Γä╣ todo 0
+Γä╣ duration_ms 59273.8712
+
+> @aether-flow/eval@0.1.0 test
+> node dist/tasks/checkers/run-self-tests.js && node --test dist/tests/*.test.js
+
+================================================================
+       DETERMINISTIC EVALUATION CHECKER SELF-TEST HARNESS       
+       Validating 15 tasks (15 Reference + 45 Negative Cases)
+================================================================
+
+Γû╢ [Task: task_1a_markdown_employees] Family: family1_markdown_table (Markdown Table: Employee Directory)
+  Γ£ö Reference solution PASSED deterministic checker
+  Γ£ö Negative cases rejected: 3/3
+
+Γû╢ [Task: task_1b_markdown_servers] Family: family1_markdown_table (Markdown Table: Server Telemetry Metrics)
+  Γ£ö Reference solution PASSED deterministic checker
+  Γ£ö Negative cases rejected: 3/3
+
+Γû╢ [Task: task_1c_markdown_transactions] Family: family1_markdown_table (Markdown Table: Financial Ledger Transactions)
+  Γ£ö Reference solution PASSED deterministic checker
+  Γ£ö Negative cases rejected: 3/3
+
+Γû╢ [Task: task_2a_levenshtein_dna] Family: family2_levenshtein_alignment (Levenshtein Alignment: DNA Sequences)
+  Γ£ö Reference solution PASSED deterministic checker
+  Γ£ö Negative cases rejected: 3/3
+
+Γû╢ [Task: task_2b_levenshtein_tokens] Family: family2_levenshtein_alignment (Levenshtein Alignment: Identifier Tokens)
+  Γ£ö Reference solution PASSED deterministic checker
+  Γ£ö Negative cases rejected: 3/3
+
+Γû╢ [Task: task_2c_levenshtein_sentences] Family: family2_levenshtein_alignment (Levenshtein Alignment: Natural Sentences with Typos)
+  Γ£ö Reference solution PASSED deterministic checker
+  Γ£ö Negative cases rejected: 3/3
+
+Γû╢ [Task: task_3a_dijkstra_city] Family: family3_dijkstra_turns (Dijkstra with Turn Penalties: City Grid)
+  Γ£ö Reference solution PASSED deterministic checker
+  Γ£ö Negative cases rejected: 3/3
+
+Γû╢ [Task: task_3b_dijkstra_circuit] Family: family3_dijkstra_turns (Dijkstra with Turn Penalties: Circuit Trace Routing)
+  Γ£ö Reference solution PASSED deterministic checker
+  Γ£ö Negative cases rejected: 3/3
+
+Γû╢ [Task: task_3c_dijkstra_warehouse] Family: family3_dijkstra_turns (Dijkstra with Turn Penalties: AGV Warehouse Aisle)
+  Γ£ö Reference solution PASSED deterministic checker
+  Γ£ö Negative cases rejected: 3/3
+
+Γû╢ [Task: task_4a_csv_sales] Family: family4_csv_pivot (CSV 2D Pivot: Retail Sales)
+  Γ£ö Reference solution PASSED deterministic checker
+  Γ£ö Negative cases rejected: 3/3
+
+Γû╢ [Task: task_4b_csv_telemetry] Family: family4_csv_pivot (CSV 2D Pivot: Infrastructure Telemetry)
+  Γ£ö Reference solution PASSED deterministic checker
+  Γ£ö Negative cases rejected: 3/3
+
+Γû╢ [Task: task_4c_csv_grades] Family: family4_csv_pivot (CSV 2D Pivot: Academic Exam Grades)
+  Γ£ö Reference solution PASSED deterministic checker
+  Γ£ö Negative cases rejected: 3/3
+
+Γû╢ [Task: task_5a_knapsack_cargo] Family: family5_knapsack_dual (0/1 Dual Knapsack: Freight Cargo Packing)
+  Γ£ö Reference solution PASSED deterministic checker
+  Γ£ö Negative cases rejected: 3/3
+
+Γû╢ [Task: task_5b_knapsack_payload] Family: family5_knapsack_dual (0/1 Dual Knapsack: Satellite Payload Instruments)
+  Γ£ö Reference solution PASSED deterministic checker
+  Γ£ö Negative cases rejected: 3/3
+
+Γû╢ [Task: task_5c_knapsack_cloud] Family: family5_knapsack_dual (0/1 Dual Knapsack: Cloud VM Packing)
+  Γ£ö Reference solution PASSED deterministic checker
+  Γ£ö Negative cases rejected: 3/3
+
+================================================================
+                    SELF-TEST RUN SUMMARY                       
+================================================================
+Γ£ö Reference Solutions Passed: 15/15 (100.0%)
+Γ£ö Negative Cases Rejected:    45/45 (100.0%)
+Γ£ö Status: ALL CHECKERS VALIDATED
+================================================================
+
+[SECURITY WARNING] Running Sandbox in insecure subprocess mode. OS-level network isolation is disabled!
+[SECURITY WARNING] Running Sandbox in insecure subprocess mode. OS-level network isolation is disabled!
+Γ£ö ORACLE INTEGRITY: Hidden checker is NEVER called inside condition loops (1067.7844ms)
+Γ£ö TOOL RETRIEVAL: ToolLibrary retrieves tools via description similarity without familyId (1.3126ms)
+[SECURITY WARNING] Running Sandbox in insecure subprocess mode. OS-level network isolation is disabled!
+Γ£ö CONDITION D REUSE VALIDATION: Validates candidates using public examples only (554.368ms)
+Γ£ö CALL ESTIMATOR & STAGED EVALUATION: Precision math for Main Run, Spot-Check, and Stages (1.8356ms)
+Γ£ö DAILY BUDGET COUNTER: Tracks per-model quotas strictly independently in same file (189.881ms)
+Γ£ö MODEL CONFIGURATIONS & PROFILES: Verifies limits, thinking support, and pacing (2.4626ms)
+[API RETRY (PER-MINUTE 429: gemini-3.5-flash-lite)] Backing off for 0.7s (Attempt 1/2). Every retry counts against daily budget...
+Γ£ö TYPED PROVIDER ERROR VS TASK ERROR: Errors in sandbox code containing "500", "network", "abort", "quota", "429" are scored as normal task failures and NOT excluded (534.039ms)
+Γ£ö STRUCTURED 429 FIXTURE - DAILY QUOTA: Identifies daily metric, sets blockedUntil to Pacific midnight, stops with 0 retries (27.0023ms)
+[API RETRY (UNCLASSIFIED 429: gemini-3.5-flash-lite)] Cannot classify quota metric. Retrying at most once after 0.0s (Attempt 1/1)...
+Γ£ö STRUCTURED 429 FIXTURE - PER-MINUTE: Identifies per-minute metric, parses retryDelay, retries up to 2 times, counts all retries (1011.3105ms)
+Γ£ö STRUCTURED 429 FIXTURE - UNCLASSIFIED: Retries at most once, does NOT block the day (1010.0799ms)
+Γ£ö ERROR REDACTION: saveRedactedErrorBody sanitizes API keys and tokens (3.8233ms)
+Γ£ö PACIFIC DATE KEYING & RESET TIME IN CASABLANCA: Verifies midnight alignment in America/Los_Angeles and conversion to Africa/Casablanca (2.657ms)
+Γ£ö GUARD LIVE CALLS BEHIND --allow-live: Refuses live calls without explicit flag (1.9634ms)
+Γ£ö DAILY STATUS COMPUTE: Accurately calculates progress and determines active stage (35.7655ms)
+Γä╣ tests 14
+Γä╣ suites 0
+Γä╣ pass 14
+Γä╣ fail 0
+Γä╣ cancelled 0
+Γä╣ skipped 0
+Γä╣ todo 0
+Γä╣ duration_ms 5557.0647
+
+================================================================
+       REAL DEFENSE-IN-DEPTH MUTATION VERIFICATION RUNNER       
+  Node Version: v24.11.1 | Mode: DOCKER | Total Layers: 9
+  Each mutation is applied to source, rebuilt, tested, and parsed
+================================================================
+
+▶ [Layer 1/9] Docker Layer 1: Network Isolation (--network none)
+  Description: Remove --network none from buildDockerArgs flag list
+  ✔ Real tests that failed under this mutation (1):
+    ✖ Docker network isolation Test 1: Real flag list cannot connect to host TCP listener (0 connections)
+
+▶ [Layer 2/9] Docker Layer 2: Non-Root User Isolation (--user node)
+  Description: Remove --user node from buildDockerArgs flag list (defaults to root)
+  ✔ Real tests that failed under this mutation (1):
+    ✖ Docker probe: container runs as non-root user node (uid 1000)
+
+▶ [Layer 3/9] Docker Layer 3: Read-Only Root Filesystem (--read-only)
+  Description: Remove --read-only from buildDockerArgs flag list
+  ✔ Real tests that failed under this mutation (1):
+    ✖ Docker probe: container filesystem is strictly read-only (touch /x fails)
+
+▶ [Layer 4/9] Docker Layer 4: Capability Dropping (--cap-drop=ALL)
+  Description: Remove --cap-drop=ALL from buildDockerArgs flag list
+  ✔ Real tests that failed under this mutation (1):
+    ✖ Docker probe: container Linux capabilities are dropped (CapBnd is 0)
+
+▶ [Layer 5/9] Docker Layer 5: Process Fork Bomb Containment (--pids-limit=64)
+  Description: Remove --pids-limit=64 from buildDockerArgs flag list
+  ✔ Real tests that failed under this mutation (1):
+    ✖ Docker probe: container pids limit is enforced (pids.max is 64)
+
+▶ [Layer 6/9] Docker Layer 6: Memory Cgroups Limit (--memory=64m)
+  Description: Remove --memory=64m and --memory-swap=64m from buildDockerArgs flag list
+  ✔ Real tests that failed under this mutation (2):
+    ✖ Docker probe: container memory limit is enforced (memory.max matches 64MB)
+    ✖ ArrayBuffer memory bomb analysis: timeout vs memory cap in each mode
+
+▶ [Layer 7/9] Docker Layer 7: Host-Side Stderr Output Flooding Cap
+  Description: Disable host-side stderr cap and container runner log cap in Docker mode
+  ✔ Real tests that failed under this mutation (2):
+    ✖ [docker] Sandbox output caps terminate execution on unbounded output flooding
+    ✖ Docker mode host-side stderr flooding is terminated by output limit cap
+
+▶ [Layer 8/9] Docker Layer 8: VM Context Lockdown & Isolated Realm (Docker Mode)
+  Description: Expose dangerous require() and fetch() globals directly in contextGlobals in mounted runner
+  ✔ Real tests that failed under this mutation (2):
+    ✖ [docker] Sandbox blocks filesystem read outside sandbox (fs / require)
+    ✖ [docker] Sandbox blocks outbound network connection attempts (fetch / net)
+
+▶ [Layer 9/9] Docker Layer 9: V8 Engine Flags in Docker Mode (--disallow-code-generation-from-strings)
+  Description: Remove V8 string compilation disallowance from Docker command and VM context
+  ✔ Real tests that failed under this mutation (2):
+    ✖ [docker] Sandbox blocks prototype constructor chain breakout
+    ✖ [docker] Sandbox blocks eval() via engine-level string compilation disallowance
+
+================================================================
+                      MUTATION RUN SUMMARY                      
+================================================================
+✔ [DOCKER] Docker Layer 1: Network Isolation (--network none): 1 real test(s) failed
+    ↳ caught by: Docker network isolation Test 1: Real flag list cannot connect to host TCP listener (0 connections)
+✔ [DOCKER] Docker Layer 2: Non-Root User Isolation (--user node): 1 real test(s) failed
+    ↳ caught by: Docker probe: container runs as non-root user node (uid 1000)
+✔ [DOCKER] Docker Layer 3: Read-Only Root Filesystem (--read-only): 1 real test(s) failed
+    ↳ caught by: Docker probe: container filesystem is strictly read-only (touch /x fails)
+✔ [DOCKER] Docker Layer 4: Capability Dropping (--cap-drop=ALL): 1 real test(s) failed
+    ↳ caught by: Docker probe: container Linux capabilities are dropped (CapBnd is 0)
+✔ [DOCKER] Docker Layer 5: Process Fork Bomb Containment (--pids-limit=64): 1 real test(s) failed
+    ↳ caught by: Docker probe: container pids limit is enforced (pids.max is 64)
+✔ [DOCKER] Docker Layer 6: Memory Cgroups Limit (--memory=64m): 2 real test(s) failed
+    ↳ caught by: Docker probe: container memory limit is enforced (memory.max matches 64MB)
+    ↳ caught by: ArrayBuffer memory bomb analysis: timeout vs memory cap in each mode
+✔ [DOCKER] Docker Layer 7: Host-Side Stderr Output Flooding Cap: 2 real test(s) failed
+    ↳ caught by: [docker] Sandbox output caps terminate execution on unbounded output flooding
+    ↳ caught by: Docker mode host-side stderr flooding is terminated by output limit cap
+✔ [DOCKER] Docker Layer 8: VM Context Lockdown & Isolated Realm (Docker Mode): 2 real test(s) failed
+    ↳ caught by: [docker] Sandbox blocks filesystem read outside sandbox (fs / require)
+    ↳ caught by: [docker] Sandbox blocks outbound network connection attempts (fetch / net)
+✔ [DOCKER] Docker Layer 9: V8 Engine Flags in Docker Mode (--disallow-code-generation-from-strings): 2 real test(s) failed
+    ↳ caught by: [docker] Sandbox blocks prototype constructor chain breakout
+    ↳ caught by: [docker] Sandbox blocks eval() via engine-level string compilation disallowance
+================================================================
+
+================================================================
+       REAL DEFENSE-IN-DEPTH MUTATION VERIFICATION RUNNER       
+  Node Version: v24.11.1 | Mode: SUBPROCESS | Total Layers: 6
+  Each mutation is applied to source, rebuilt, tested, and parsed
+================================================================
+
+▶ [Layer 1/6] Subprocess Layer 1: Static AST Verifier (Static Lint Layer)
+  Description: Bypass AST verification (force isSafe = true and clear banned patterns)
+  ✔ Real tests that failed under this mutation (7):
+    ✖ ASTVerifier blocks prototype constructor chain breakout
+    ✖ ASTVerifier blocks computed string concatenation constructor evasion
+    ✖ ASTVerifier blocks template literal constructor evasion
+    ✖ ASTVerifier blocks prototype pollution via __proto__
+    ✖ ASTVerifier blocks dynamic import expressions
+    ✖ ASTVerifier blocks eval and new Function identifiers
+    ✖ ASTVerifier blocks static while(true) infinite loops
+
+▶ [Layer 2/6] Subprocess Layer 2: VM Context Lockdown & Isolated Realm
+  Description: Expose dangerous require() and fetch() globals directly in contextGlobals
+  ✔ Real tests that failed under this mutation (2):
+    ✖ [subprocess] Sandbox blocks filesystem read outside sandbox (fs / require)
+    ✖ [subprocess] Sandbox blocks outbound network connection attempts (fetch / net)
+
+▶ [Layer 3/6] Subprocess Layer 3: V8 Engine Flags (--disallow-code-generation-from-strings)
+  Description: Remove V8 string compilation disallowance from child process flags and VM context
+  ✔ Real tests that failed under this mutation (4):
+    ✖ Known AST bypass: computed key via Array.join is missed by AST but contained by Sandbox
+    ✖ Known AST bypass: Reflect.get with String.fromCharCode is missed by AST but contained by Sandbox
+    ✖ [subprocess] Sandbox blocks prototype constructor chain breakout
+    ✖ [subprocess] Sandbox blocks eval() via engine-level string compilation disallowance
+
+▶ [Layer 4/6] Subprocess Layer 4: Environment Stripping (env: {})
+  Description: Leak host process.env into spawned child process (change env: {} to env: process.env)
+  ✔ Real tests that failed under this mutation (1):
+    ✖ [subprocess] Sandbox strips host environment variables (no host secrets accessible)
+
+▶ [Layer 5/6] Subprocess Layer 5: Authoritative Timeout Kill
+  Description: Disable child process kill timer on execution timeout
+  ✔ Real tests that failed under this mutation (1):
+    ✖ [subprocess] Sandbox hard timeout terminates asynchronous microtask loop
+
+▶ [Layer 6/6] Subprocess Layer 6: Output Limits Cap
+  Description: Disable stdout flooding byte cap and serialized result size cap
+  ✔ Real tests that failed under this mutation (2):
+    ✖ [subprocess] Sandbox output caps terminate execution on unbounded output flooding
+    ✖ [subprocess] Sandbox fails safely when return value exceeds maximum result size
+
+================================================================
+                      MUTATION RUN SUMMARY                      
+================================================================
+✔ [SUBPROCESS] Subprocess Layer 1: Static AST Verifier (Static Lint Layer): 7 real test(s) failed
+    ↳ caught by: ASTVerifier blocks prototype constructor chain breakout
+    ↳ caught by: ASTVerifier blocks computed string concatenation constructor evasion
+    ↳ caught by: ASTVerifier blocks template literal constructor evasion
+    ↳ caught by: ASTVerifier blocks prototype pollution via __proto__
+    ↳ caught by: ASTVerifier blocks dynamic import expressions
+    ↳ caught by: ASTVerifier blocks eval and new Function identifiers
+    ↳ caught by: ASTVerifier blocks static while(true) infinite loops
+✔ [SUBPROCESS] Subprocess Layer 2: VM Context Lockdown & Isolated Realm: 2 real test(s) failed
+    ↳ caught by: [subprocess] Sandbox blocks filesystem read outside sandbox (fs / require)
+    ↳ caught by: [subprocess] Sandbox blocks outbound network connection attempts (fetch / net)
+✔ [SUBPROCESS] Subprocess Layer 3: V8 Engine Flags (--disallow-code-generation-from-strings): 4 real test(s) failed
+    ↳ caught by: Known AST bypass: computed key via Array.join is missed by AST but contained by Sandbox
+    ↳ caught by: Known AST bypass: Reflect.get with String.fromCharCode is missed by AST but contained by Sandbox
+    ↳ caught by: [subprocess] Sandbox blocks prototype constructor chain breakout
+    ↳ caught by: [subprocess] Sandbox blocks eval() via engine-level string compilation disallowance
+✔ [SUBPROCESS] Subprocess Layer 4: Environment Stripping (env: {}): 1 real test(s) failed
+    ↳ caught by: [subprocess] Sandbox strips host environment variables (no host secrets accessible)
+✔ [SUBPROCESS] Subprocess Layer 5: Authoritative Timeout Kill: 1 real test(s) failed
+    ↳ caught by: [subprocess] Sandbox hard timeout terminates asynchronous microtask loop
+✔ [SUBPROCESS] Subprocess Layer 6: Output Limits Cap: 2 real test(s) failed
+    ↳ caught by: [subprocess] Sandbox output caps terminate execution on unbounded output flooding
+    ↳ caught by: [subprocess] Sandbox fails safely when return value exceeds maximum result size
+================================================================

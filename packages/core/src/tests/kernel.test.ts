@@ -6,20 +6,13 @@ import { ToolRegistry } from '../tools/ToolRegistry.js';
 import { VectorMemory } from '../memory/VectorMemory.js';
 import { KnowledgeGraph } from '../memory/KnowledgeGraph.js';
 import { SecurityFirewall } from '../guardrails/SecurityFirewall.js';
-import { GeneticOptimizer } from '../evolution/GeneticOptimizer.js';
-import { BrowserAgent } from '../computer/BrowserAgent.js';
-import { ClusterNode } from '../cluster/ClusterNode.js';
-import { MockProvider } from '../providers/MockProvider.js';
 import { SymbolicSolver } from '../formal/SymbolicSolver.js';
 import { FlowScriptLexer } from '../compiler/Lexer.js';
 import { FlowScriptParser } from '../compiler/Parser.js';
 import { CheckpointEngine } from '../storage/CheckpointEngine.js';
-import { VisionPerception } from '../multimodal/VisionPerception.js';
-import { AudioPerception } from '../multimodal/AudioPerception.js';
-import { CRDTStore, VectorClock } from '../cluster/CRDTStore.js';
 
-test('Sandbox executes JS code securely and captures logs', async () => {
-  const sandbox = new Sandbox(2000);
+test('Sandbox executes JS code securely in Docker mode and captures logs', async () => {
+  const sandbox = new Sandbox({ mode: 'docker', timeoutMs: 30000 });
   const code = `
     export default async function execute(args) {
       console.log('Computing payload...');
@@ -35,7 +28,7 @@ test('Sandbox executes JS code securely and captures logs', async () => {
   assert.equal(result.logs.length, 1);
 });
 
-test('ToolRegistry executes pre-registered tools and web tools', async () => {
+test('ToolRegistry executes pre-registered tools [sample-value check on text_analyzer]', async () => {
   const registry = new ToolRegistry();
   assert.equal(registry.has('text_analyzer'), true);
   assert.equal(registry.has('web_search'), true);
@@ -137,53 +130,42 @@ test('CheckpointEngine snapshots state and creates divergent time-travel forks',
   assert.ok(forked.label.includes('Alternative Risk Strategy'));
 });
 
-test('VisionPerception segments UI hierarchy and bounding boxes', () => {
-  const vision = new VisionPerception();
-  const analysis = vision.analyzeImage('data:image/png;base64,mockui_sample');
-  assert.ok(analysis.detectedObjects.length >= 3);
-  assert.equal(analysis.imageDimensions.width, 1920);
+test('AetherKernel synthesizes and verifies a dynamic tool in Sandbox [MockProvider]', async () => {
+  const kernel = new AetherKernel({
+    provider: 'mock',
+    sandboxMode: 'docker',
+    sandboxTimeoutMs: 12000,
+  });
+
+  const res = await kernel.synthesizeTool({
+    toolName: 'statistical_calc',
+    purpose: 'Calculate mean and standard deviation of numeric data',
+    inputSpecification: [{ name: 'data', type: 'array', description: 'List of numbers' }],
+    expectedOutput: 'Object with mean and stdDev',
+  });
+
+  assert.equal(res.success, true, `Tool synthesis failed: ${res.error}`);
+  assert.ok(res.tool, 'Synthesized tool must be defined');
+  assert.equal(kernel.registry.has('statistical_calc'), true, 'Tool must be registered in ToolRegistry');
+
+  // Verify the synthesized tool executes through the registry
+  const execResult = (await kernel.registry.execute('statistical_calc', { numbers: [10, 20, 30] })) as {
+    average: number;
+    stdDev: number;
+  };
+  assert.equal(execResult.average, 20);
+  assert.ok(execResult.stdDev > 0);
+
+  await kernel.stop();
 });
 
-test('AudioPerception computes RMS energy and zero-crossing rates', () => {
-  const audio = new AudioPerception();
-  const syntheticSineWave = Array.from({ length: 1600 }, (_, i) => Math.sin((i / 16) * Math.PI));
-  const metrics = audio.analyzeSignal(syntheticSineWave, 16000);
-  assert.ok(metrics.rmsEnergy > 0.5);
-  assert.ok(metrics.hasVoiceActivity);
-});
-
-test('CRDTStore synchronizes state without conflicts across vector clocks', () => {
-  const storeA = new CRDTStore<string>();
-  const storeB = new CRDTStore<string>();
-
-  storeA.add('skill_1', 'VarianceCalculator', 'node_1');
-  storeB.add('skill_2', 'MonteCarloPricer', 'node_2');
-
-  storeA.merge(storeB['addSet'], storeB['removeSet']);
-  assert.equal(storeA.has('skill_1'), true);
-  assert.equal(storeA.has('skill_2'), true);
-
-  const clock = new VectorClock('node_1');
-  clock.increment('node_1');
-  assert.equal(clock.getTime('node_1'), 1);
-});
-
-test('GeneticOptimizer evolves prompt fitness across generations', async () => {
-  const optimizer = new GeneticOptimizer(new MockProvider(), 3, 2);
-  const result = await optimizer.optimize('Write clean python code', 'Data science analytics');
-  assert.ok(result.totalGenerations === 2);
-  assert.ok(result.bestCandidate.fitnessScore >= 80);
-});
-
-test('AetherKernel end-to-end goal execution with speculative swarm', async () => {
+test('AetherKernel end-to-end goal execution with plan synthesis and verified execution [MockProvider]', async () => {
   const kernel = new AetherKernel({
     provider: 'mock',
     enableJitTools: true,
+    sandboxMode: 'docker',
+    sandboxTimeoutMs: 12000,
   });
-
-  const spec = await kernel.executeSpeculative('Deconstruct zero-knowledge rollup proofs', 3);
-  assert.ok(spec.allBranches.length === 3);
-  assert.ok(spec.winningBranch.criticScore >= 80);
 
   const res = await kernel.executeGoal('Evaluate portfolio risk and calculate standard deviation', {
     portfolio: ['AAPL', 'GOOGL', 'NVDA'],

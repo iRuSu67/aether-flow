@@ -2,7 +2,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { AetherKernel } from '@aether-flow/core';
+import { AetherKernel, experimental } from '@aether-flow/core';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,15 +16,18 @@ const kernel = new AetherKernel({
 
 await kernel.startTelemetry(TELEMETRY_PORT);
 
+// Experimental engine instances for optional API demo routes
+const mctsEngine = new experimental.MCTSEngine(kernel.provider, kernel.bus);
+const speculativeEngine = new experimental.SpeculativeEngine(kernel.provider, kernel.bus);
+const arenaJudge = new experimental.ArenaJudge();
+
 // Pre-populate some knowledge graph concepts for rich out-of-the-box exploration
 kernel.graph.addNode('Objective', 'input', { label: 'High-Level Objective' });
 kernel.graph.addNode('Architect', 'agent', { role: 'orchestrator' });
 kernel.graph.addNode('Critic', 'agent', { role: 'adversary' });
-kernel.graph.addNode('MCTSEngine', 'reasoning', { exploration: 'UCB1' });
 kernel.graph.addNode('ToolForge', 'runtime', { capability: 'jit_synthesis' });
 kernel.graph.addNode('SandboxedVM', 'security', { timeout: 5000 });
 kernel.graph.addEdge('Objective', 'Architect', 'decomposed_by');
-kernel.graph.addEdge('Architect', 'MCTSEngine', 'optimizes_via');
 kernel.graph.addEdge('Architect', 'Critic', 'audited_by');
 kernel.graph.addEdge('Architect', 'ToolForge', 'synthesizes_tool');
 kernel.graph.addEdge('ToolForge', 'SandboxedVM', 'executes_in');
@@ -75,7 +78,7 @@ const server = http.createServer(async (req, res) => {
       try {
         const payload = JSON.parse(body || '{}');
         const goal = payload.goal || 'Derive non-linear equilibrium state';
-        const result = await kernel.searchMCTS(goal);
+        const result = await mctsEngine.search(goal);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(result));
       } catch (err) {
@@ -95,7 +98,7 @@ const server = http.createServer(async (req, res) => {
         const payload = JSON.parse(body || '{}');
         const goal = payload.goal || 'Deconstruct quantum lattice cryptography';
         const branches = Number(payload.branches) || 3;
-        const result = await kernel.executeSpeculative(goal, branches);
+        const result = await speculativeEngine.execute(goal, branches);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(result));
       } catch (err) {
@@ -123,7 +126,7 @@ const server = http.createServer(async (req, res) => {
   // API: Arena Leaderboard
   if (req.method === 'GET' && url.pathname === '/api/arena') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(kernel.arena.getLeaderboard()));
+    res.end(JSON.stringify(arenaJudge.getLeaderboard()));
     return;
   }
 

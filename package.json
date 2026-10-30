@@ -1,6 +1,6 @@
 {
   "name": "aether-flow-monorepo",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "Autonomous Multi-Agent Microkernel & Real-Time Cognitive Canvas with On-the-Fly Tool Synthesis",
@@ -14,13 +14,18 @@
     "examples/*"
   ],
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present",
+    "build": "npm --workspace=@aether-flow/core run build && npm --workspace=@aether-flow/cli run build && npm --workspace=@aether-flow/eval run build",
+    "typecheck": "tsc --noEmit",
     "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
     "start:canvas": "npm --workspace=@aether-flow/web run dev",
     "cli": "node packages/cli/dist/bin.js",
     "demo": "node packages/core/dist/examples/quickstart.js",
-    "benchmark": "node benchmarks/run_benchmarks.js"
+    "benchmark": "node benchmarks/run_benchmarks.js",
+    "eval": "node --dns-result-order=ipv4first packages/eval/dist/index.js",
+    "eval:daily": "node --dns-result-order=ipv4first packages/eval/dist/index.js --daily",
+    "eval:smoke": "node --dns-result-order=ipv4first packages/eval/dist/index.js --smoke --allow-live",
+    "eval:mock": "node packages/eval/dist/index.js --dry-run"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
