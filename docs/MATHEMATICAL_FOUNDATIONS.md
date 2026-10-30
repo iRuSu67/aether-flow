@@ -1,5 +1,8 @@
 # AetherFlow Mathematical & Algorithmic Foundations
 
+> [!WARNING]
+> **Experimental / Unverified Feature**: The theoretical frameworks described in this document (including Hegelian consensus, MCTS deliberation, speculative pruning, and CRDT replication) represent research prototypes under `packages/core/src/experimental/`. They are **NOT** part of the verified v0.1 release scope, benchmark claims, or security guarantees.
+
 This document provides formal descriptions of the algorithmic models and heuristics employed across the AetherFlow microkernel.
 
 > [!NOTE]
@@ -77,7 +80,7 @@ $$\text{LWW}(e_1, e_2) = \begin{cases} e_1 & \text{if } t(e_1) \ge t(e_2) \\ e_2
 The `SymbolicSolver` implements recursive backtracking search over Conjunctive Normal Form (CNF) propositional formulas:
 $$\varphi = \bigwedge_{i=1}^m \bigvee_{j=1}^{k_i} l_{i,j}$$
 
-The solver guarantees soundness and refutational completeness over finite propositional CNF inputs:
+The solver provides soundness and refutational completeness over finite propositional CNF inputs:
 - If $\varphi$ is satisfiable, the backtracking search discovers a satisfying assignment $\mathcal{M} \models \varphi$.
 - If $\varphi$ is unsatisfiable, the search refutes satisfiability after exhaustively pruning conflicting branches.
 *(Note: Full DPLL with clause-level unit propagation and pure-literal elimination is planned on the formal verification roadmap).*

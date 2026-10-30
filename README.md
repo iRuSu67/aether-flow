@@ -46,7 +46,7 @@
 When LLMs solve complex mathematical, analytical, or algorithmic problems, they face trade-offs across common execution paradigms:
 1. **Direct Generation (Zero-Shot)**: Models frequently hallucinate intermediate states, struggle with combinatorial sequence alignment ($O(MN)$ Levenshtein dynamic programming), and consume large token budgets generating calculations in natural language.
 2. **Fixed Static Palettes (ReAct / Function Calling)**: Frameworks force models into predefined tool sets (`math_calc`, `regex_match`). When an unpredicted algorithm is needed (e.g. Dijkstra turn penalties or 2D matrix pivoting), simple palettes cannot fulfill the task, leading to multi-turn failure loops.
-3. **Remote Cloud MicroVMs**: Running untrusted code in external cloud sandboxes incurs network latency roundtrips, recurring subscription costs, and vendor dependency for enterprise data.
+3. **Remote Cloud MicroVMs**: Running untrusted code in external cloud sandboxes incurs network latency roundtrips, recurring subscription costs, and vendor dependency for private code and sensitive data.
 
 **AetherFlow is a local, fail-closed TypeScript microkernel and sandboxed runtime that empowers LLMs to synthesize custom tools Just-In-Time (JIT) and execute them safely.**
 
@@ -67,13 +67,26 @@ Honest architectural comparison across execution paradigms:
 | :--- | :---: | :---: | :---: | :---: |
 | **Arbitrary Algorithmic Execution** | ❌ (Prone to combinatorial loop hallucination) | ❌ (Restricted to predefined tool palette) | ✔ (Full VM runtime environment) | ✔ (JIT-synthesized ES modules) |
 | **Execution Isolation Boundary** | None (Text generation only) | Host Process or App Sandbox | Cloud MicroVM (Tenant VM boundary) | Fail-Closed Local Docker Container |
-| **Network Airgap Guarantee** | Dependent on host process | Dependent on host process | Network policy dependent | ✔ Strict `--network none` default |
+| **Network Airgap Enforcement** | Dependent on host process | Dependent on host process | Network policy dependent | ✔ Strict `--network none` default |
 | **Static AST Pre-Verification** | N/A | Rare / Simple regex | ❌ (Direct execution) | ✔ TypeScript AST Compiler API (~20ms) |
 | **Self-Healing Compiler/Runtime Loop**| ❌ | ❌ | Application-level logic | ✔ Built-in iterative retry & feedback |
 | **Dynamic Semantic Tool Reuse** | ❌ | ❌ (Manual configuration) | ❌ | ✔ Description-keyed `ToolLibrary` (0 tokens) |
-| **Data Privacy & Airgap** | Host process dependent | Host process dependent | Cloud infrastructure dependent | ✔ 100% Local container airgap |
+| **Data Privacy & Airgap** | Host process dependent | Host process dependent | Cloud infrastructure dependent | ✔ Local container airgap (`--network none`) |
 | **Execution Cost** | Model tokens only | High (Multi-turn tool chatter) | SaaS / Cloud compute fees + tokens | $0 Host compute + 0-token tool reuse |
 | **Cold-Start Latency** | **~0 ms** | **~0 ms** | Provider network dependent | ~1,000–1,300 ms (Ephemeral Docker init) |
+
+### Component Maturity in v0.1
+
+| Component | Package / Path | Status in v0.1 | Verified Scope |
+| :--- | :--- | :---: | :--- |
+| **Core Microkernel & Docker Sandbox** | `@aether-flow/core` | 🟢 **Production Verified** | Fail-closed network airgap, cgroups, capability dropping verified by 9 mutation tests |
+| **Static AST Security Linter** | `ASTVerifier` | 🟢 **Production Verified** | AST analysis blocking dangerous identifiers and loops without exits in ~20ms |
+| **JIT Dynamic Tool Synthesis** | `ToolForge` / `examples/02` | 🟢 **Production Verified** | Self-healing tool generation loop verified offline (MockProvider) and live |
+| **Evaluation Benchmark Harness** | `@aether-flow/eval` | 🟢 **Production Verified** | 15 algorithmic benchmark tasks across 5 domains with N=3 repetitions |
+| **CLI Runner** | `@aether-flow/cli` | 🟢 **Production Verified** | Production CLI commands (`aether run`, `aether eval`) |
+| **Visual Canvas Web UI** | `@aether-flow/web` | 🟡 **Experimental Prototype** | Local visual dashboard and WebSocket server; not covered by core guarantees |
+| **Python SDK Client** | `packages/python-sdk` | 🟡 **Experimental Prototype** | Lightweight REST client wrapper for Python environments |
+| **Cognitive Swarm Modules** | `packages/core/src/experimental` | 🟡 **Research Prototypes** | Speculative prototypes (Hegelian consensus, MCTS, CRDT, FlowScript DSL) |
 
 ---
 
@@ -200,6 +213,7 @@ AetherFlow was benchmarked using [Google Gemini 3.5 Flash-Lite](https://ai.googl
 - **Concentration of Gain**: The observed accuracy gain from JIT code synthesis is concentrated almost entirely in the **sequence-alignment family** (`task_2b_levenshtein_tokens` and `task_2c_levenshtein_sentences`). Direct generation failed completely (0/3) due to combinatorial state tracking errors in natural language generation, while synthesized code execution (C0, C, D) succeeded (3/3 and 2/3) by executing dynamic programming loops in the sandbox.
 - **DNA Alignment Failure Across All Conditions**: `task_2a_levenshtein_dna` failed in 0/3 runs across *all* conditions (A, B, C0, C, D). A post-run analysis identified an ambiguity and schema mismatch: the prompt example provided `{ op: 'substitute', char: 'C', replaceWith: 'B' }`, whereas the checker strictly inspected `step.char` as the replacement target character (`reconstructed += step.char`). Models following the prompt example format could not satisfy the checker's string reconstruction assertion.
 - **C vs C0 Difference is Within Noise**: Condition C achieved 41/45 passes versus 39/45 for Condition C0. This absolute difference of **+2 passes out of 45 runs** is well within binomial noise and does not provide statistically distinguishing evidence of self-healing multi-turn feedback on this benchmark.
+- **Failure 3 Attribution (AST False Rejection)**: In `task_3b_dijkstra_circuit`, Condition C0 scored 1/3 due to an AST false rejection: the model synthesized an optimal binary heap priority queue (`MinPriorityQueue`) containing a standard `while (true)` loop with an interior `else { break; }`. The AST verifier naively blocked it as `POLICY_BLOCKED`. Under Condition C, diagnostic feedback allowed the model to work around the linter. The AST verifier has since been updated with `hasReachableLoopExit` to permit loops with reachable `break` or `return` exits.
 
 ### Honest Analysis & Statistical Nuance
 
@@ -293,18 +307,24 @@ See [SECURITY.md](SECURITY.md) for full attack vectors, threat analysis, and pro
 
 ## ⚠️ Known Limitations
 
-1. **Tasks Too Easy to Separate Conditions**:
+1. **Benchmark Task Separability (11 of 15 Solved Direct)**:
    - 11 of 15 benchmark tasks are solved 3/3 by direct zero-shot generation without requiring external execution. The benchmark does not adequately separate conditions on straightforward algorithmic or structured text parsing tasks.
    - *Next Step (Harder Tasks)*: Future benchmark iterations must expand to tasks requiring dynamic graph state search, large-scale constraint optimization, and deeper multi-step reasoning where direct in-context generation consistently fails.
-2. **Docker Mode Cold-Start Overhead**:
-   - Starting an ephemeral container on Windows (WSL2) or Linux imposes a baseline cold-start latency of approximately **~1,000ms – 1,300ms** per execution.
+2. **C vs C0 Difference Within Noise**:
+   - The absolute difference of +2 passes (41/45 for C vs 39/45 for C0) is within binomial noise. The benchmark does not provide statistically distinguishing evidence for multi-turn feedback on these tasks.
+3. **DNA Alignment Contract Conflict**:
+   - `task_2a_levenshtein_dna` failed in 0/3 runs across all conditions due to a schema mismatch between the prompt example format (`{ op: 'substitute', char: 'C', replaceWith: 'B' }`) and the checker's string reconstruction assertion.
+4. **Condition D Amortization Depends on Shared Schemas**:
+   - Reusing synthesized tools requires task variants within a family to share input structures and semantic objectives. In heterogeneous environments, reuse rates will naturally be lower.
+5. **Docker Cold-Start Overhead (~1,000–1,300ms)**:
+   - Starting an ephemeral container on Windows (WSL2) or Linux imposes a baseline cold-start latency of approximately ~1,000ms – 1,300ms per execution.
    - *Roadmap*: Pre-warmed container pooling to achieve <50ms execution latency while preserving complete per-execution tenant isolation.
-3. **Single-Node Execution in v0.1**:
+6. **Single Lightweight Model Scope**:
+   - Evaluation was conducted on a single lightweight model (`gemini-3.5-flash-lite`) across 15 tasks. Results are **suggestive, not universal** across 1T+ parameter frontier models on arbitrary production codebases.
+7. **Single-Node Execution in v0.1**:
    - The frozen v0.1 scope targets single-node local environments. Multi-node cluster orchestration and distributed memory synchronization remain experimental prototypes in `packages/core/src/experimental/`.
-4. **Synchronous Payload Serialization**:
+8. **Synchronous Payload Serialization**:
    - Input arguments and execution return values are serialized as JSON over standard I/O pipes. Massive binary payloads or non-serializable objects (e.g. circular references, DOM handles) are not supported.
-5. **Lightweight Model Baseline**:
-   - Evaluation was conducted on a lightweight model (`gemini-3.5-flash-lite`). Results are **suggestive, not universal** across 1T+ parameter frontier models on arbitrary production codebases.
 
 ---
 
