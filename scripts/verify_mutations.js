@@ -100,10 +100,23 @@ function parseFailedTests(output) {
   return Array.from(failed);
 }
 
-function runAdversarialSuite() {
+function runAdversarialSuite(mode) {
+  const testArgs = [
+    '--test',
+    '--test-concurrency=1',
+    '--test-reporter=spec',
+    '--test-timeout=25000',
+  ];
+  if (mode === 'docker') {
+    testArgs.push('--test-name-pattern=\\[docker\\]|Docker|ArrayBuffer');
+  } else if (mode === 'subprocess') {
+    testArgs.push('--test-name-pattern=\\[subprocess\\]|ASTVerifier|VM Context|Sandbox fails closed|Known AST');
+  }
+  testArgs.push('packages/core/dist/tests/sandbox-escape.test.js');
+
   const res = spawnSync(
     process.execPath,
-    ['--test', '--test-reporter=spec', '--test-timeout=25000', 'packages/core/dist/tests/sandbox-escape.test.js'],
+    testArgs,
     {
       cwd: rootDir,
       encoding: 'utf8',
@@ -458,7 +471,7 @@ async function main() {
     try {
       layer.apply();
       rebuild();
-      const failedTests = runAdversarialSuite();
+      const failedTests = runAdversarialSuite(layer.mode);
 
       if (failedTests.length === 0) {
         logBoth('  ⚠️ WARNING: Mutation failed NO tests! Defense gap detected.\n');

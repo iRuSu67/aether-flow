@@ -170,7 +170,9 @@ AetherFlow was benchmarked using [Google Gemini 3.5 Flash-Lite](https://ai.googl
 | **Condition B** | Fixed Tool Palette (`math_calc`, `regex_match`, etc.) | 75.6% [61.3%, 85.8%] | 8,146 ms | 3,291 | 2,468 | 176 |
 | **Condition C0** | One-Shot JIT Code Synthesis (No Feedback) | 86.7% [73.8%, 93.7%] | 6,390 ms | 1,659 | 504 | 646 |
 | **Condition C** | JIT Code Synthesis + Self-Healing Feedback Loop | **91.1%** [79.3%, 96.5%] | 6,645 ms | 1,880 | 588 | 726 |
-| **Condition D** | JIT Code Synthesis + Semantic `ToolLibrary` Reuse | **91.1%** [79.3%, 96.5%] | **2,398 ms** | **965** | **301** | **406** |
+| **Condition D** | JIT Code Synthesis + Semantic `ToolLibrary` Reuse | **91.1%** [79.3%, 96.5%] | *Not Comparable*¹ | *Not Comparable*¹ | **301** | **406** |
+
+> ¹ **Condition D Cache Accounting Caveat**: In the evaluation run, Condition D executed with the response cache active. On library misses (24 runs), D fell back to Condition C synthesis and retrieved cached code in ~2ms (zero API latency recorded). D's recorded latency (2,398 ms) and tokens (965) reflect this free cached synthesis and are not directly comparable to Conditions A–C. When reconstructed offline by substituting Condition C's original API latency for synthesis misses, D's estimated mean latency is 5,421 ms (vs C's 6,645 ms). Additionally, Condition D's accuracy on first variants (`variant a`) was served directly from Condition C's cached output and does not represent independent evidence versus Condition C.
 
 ### Per-Task Breakdown (Passes out of 3 runs)
 
@@ -179,7 +181,7 @@ AetherFlow was benchmarked using [Google Gemini 3.5 Flash-Lite](https://ai.googl
 | `task_1a_markdown_employees` | Markdown Table Parsing | 3/3 | 3/3 | 2/3 | 3/3 | 3/3 | C0 failed 1x on timeout |
 | `task_1b_markdown_servers` | Markdown Table Parsing | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | Baseline A passes easily |
 | `task_1c_markdown_transactions` | Markdown Table Parsing | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | Baseline A passes easily |
-| `task_2a_levenshtein_dna` | Sequence Alignment | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | Complex backtracking; all failed |
+| `task_2a_levenshtein_dna` | Sequence Alignment | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | Prompt/checker schema conflict |
 | `task_2b_levenshtein_tokens` | Sequence Alignment | **0/3** | **0/3** | **3/3** | **3/3** | **3/3** | **Strong separator** |
 | `task_2c_levenshtein_sentences` | Sequence Alignment | **0/3** | **0/3** | **3/3** | **2/3** | **2/3** | **Strong separator** |
 | `task_3a_dijkstra_city` | Turn-Penalty Dijkstra | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | Baseline A passes easily |
@@ -192,6 +194,13 @@ AetherFlow was benchmarked using [Google Gemini 3.5 Flash-Lite](https://ai.googl
 | `task_5b_knapsack_payload` | 0/1 Dual Knapsack | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | Baseline A passes easily |
 | `task_5c_knapsack_cloud` | 0/1 Dual Knapsack | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | Baseline A passes easily |
 
+### Where It Helps (and Where It Doesn't)
+
+- **Baseline A Passes 11 of 15 Tasks (3/3)**: Direct zero-shot generation (Condition A) already passes **11 of 15 tasks 3/3** (and 2/3 on `task_3b`). For Markdown table parsing, Dijkstra pathfinding on small grids, 2D CSV pivot summaries, and 0/1 dual knapsack optimization, `gemini-3.5-flash-lite` solves the problems directly in-context without needing external code execution.
+- **Concentration of Gain**: The observed accuracy gain from JIT code synthesis is concentrated almost entirely in the **sequence-alignment family** (`task_2b_levenshtein_tokens` and `task_2c_levenshtein_sentences`). Direct generation failed completely (0/3) due to combinatorial state tracking errors in natural language generation, while synthesized code execution (C0, C, D) succeeded (3/3 and 2/3) by executing dynamic programming loops in the sandbox.
+- **DNA Alignment Failure Across All Conditions**: `task_2a_levenshtein_dna` failed in 0/3 runs across *all* conditions (A, B, C0, C, D). A post-run analysis identified an ambiguity and schema mismatch: the prompt example provided `{ op: 'substitute', char: 'C', replaceWith: 'B' }`, whereas the checker strictly inspected `step.char` as the replacement target character (`reconstructed += step.char`). Models following the prompt example format could not satisfy the checker's string reconstruction assertion.
+- **C vs C0 Difference is Within Noise**: Condition C achieved 41/45 passes versus 39/45 for Condition C0. This absolute difference of **+2 passes out of 45 runs** is well within binomial noise and does not provide statistically distinguishing evidence of self-healing multi-turn feedback on this benchmark.
+
 ### Honest Analysis & Statistical Nuance
 
 1. **Observed Pass Rate Differences (C vs A)**:
@@ -200,12 +209,11 @@ AetherFlow was benchmarked using [Google Gemini 3.5 Flash-Lite](https://ai.googl
    - With 95% Wilson confidence intervals of **[79.3%, 96.5%] for C** and **[66.2%, 89.1%] for A**, these intervals overlap.
    - Furthermore, because the 45 runs per condition represent 15 tasks evaluated across 3 repetitions rather than 45 independent tasks, true statistical uncertainty is wider than standard binomial intervals indicate.
 2. **Task Separability**:
-   - For 12 out of the 15 tasks (Markdown, Dijkstra city/warehouse, CSV pivot, Knapsack), the baseline direct generation (Condition A) achieved 3/3 passes. These tasks were within the model's direct in-context reasoning capacity and did not differentiate the conditions.
-   - The primary separator was **Family 2 (Sequence Alignment)**: Condition A and Condition B failed completely (0/3 on `task_2b` and 0/3 on `task_2c`), whereas synthesized code execution (C0, C, D) succeeded.
-3. **Condition D Amortization Depends on Shared Schemas**:
-   - Condition D reduced mean total tokens from 1,880 to 965 (**48.7% reduction**) and mean latency from 6,645ms to 2,398ms (**63.9% reduction**).
-   - Across eligible variants (b & c), it achieved a **70.0% Reuse Hit Rate** (21/30) with **100.0% Reuse Precision** (21/21 hits passed).
-   - *Constraint*: These savings depend on task variants within a family sharing input schemas and semantic objectives. In novel or heterogeneous task environments, reuse rates will naturally be lower.
+   - 11 of the 15 tasks are solved 3/3 by direct generation alone. The benchmark only separates conditions on combinatorial string alignment where in-context mental simulation fails.
+3. **Condition D Reuse Performance & Caveats**:
+   - Across eligible variants (b & c), Condition D achieved a **70.0% Reuse Hit Rate** (21/30) with **100.0% Reuse Precision** (21/21 hits passed and executed successfully at 0 model tokens).
+   - *Cache Accounting Caveat*: Latency and token figures for Condition D are not directly comparable because cached synthesis fallbacks were recorded with ~2ms cache lookup time rather than original API latency. Accuracy on first variants (a) was served from C's cached output and is not independent evidence versus C.
+   - *Constraint*: Tool reuse depends on task variants within a family sharing input schemas and semantic objectives. In heterogeneous environments, reuse rates will naturally be lower.
 4. **Baseline B is a Simple Palette**:
    - Condition B (75.6%) provided 5 basic utility tools (`math_calc`, `regex_match`, `json_path`, `string_slice`, `array_sort`). Because these tools cannot perform dynamic programming, Condition B functioned as a weak baseline for algorithmic tasks.
 5. **Lightweight Model Scope**:
@@ -257,7 +265,7 @@ AetherFlow operates a 4-layer defense-in-depth model verified by real mutation t
 
 ### Mutation Defense Verification Suite
 
-Each defensive layer is verified by systematically disabling it and proving the test suite catches the vulnerability:
+Each defensive layer is verified by systematically disabling it and verifying that the test suite catches the vulnerability:
 
 ```bash
 # Verify all 9 Docker containment layers
@@ -285,14 +293,17 @@ See [SECURITY.md](SECURITY.md) for full attack vectors, threat analysis, and pro
 
 ## ⚠️ Known Limitations
 
-1. **Docker Mode Cold-Start Overhead**:
+1. **Tasks Too Easy to Separate Conditions**:
+   - 11 of 15 benchmark tasks are solved 3/3 by direct zero-shot generation without requiring external execution. The benchmark does not adequately separate conditions on straightforward algorithmic or structured text parsing tasks.
+   - *Next Step (Harder Tasks)*: Future benchmark iterations must expand to tasks requiring dynamic graph state search, large-scale constraint optimization, and deeper multi-step reasoning where direct in-context generation consistently fails.
+2. **Docker Mode Cold-Start Overhead**:
    - Starting an ephemeral container on Windows (WSL2) or Linux imposes a baseline cold-start latency of approximately **~1,000ms – 1,300ms** per execution.
    - *Roadmap*: Pre-warmed container pooling to achieve <50ms execution latency while preserving complete per-execution tenant isolation.
-2. **Single-Node Execution in v0.1**:
+3. **Single-Node Execution in v0.1**:
    - The frozen v0.1 scope targets single-node local environments. Multi-node cluster orchestration and distributed memory synchronization remain experimental prototypes in `packages/core/src/experimental/`.
-3. **Synchronous Payload Serialization**:
+4. **Synchronous Payload Serialization**:
    - Input arguments and execution return values are serialized as JSON over standard I/O pipes. Massive binary payloads or non-serializable objects (e.g. circular references, DOM handles) are not supported.
-4. **Lightweight Model Baseline**:
+5. **Lightweight Model Baseline**:
    - Evaluation was conducted on a lightweight model (`gemini-3.5-flash-lite`). Results are **suggestive, not universal** across 1T+ parameter frontier models on arbitrary production codebases.
 
 ---

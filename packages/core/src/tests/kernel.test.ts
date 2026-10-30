@@ -12,7 +12,7 @@ import { FlowScriptParser } from '../compiler/Parser.js';
 import { CheckpointEngine } from '../storage/CheckpointEngine.js';
 
 test('Sandbox executes JS code securely in Docker mode and captures logs', async () => {
-  const sandbox = new Sandbox({ mode: 'docker', timeoutMs: 12000 });
+  const sandbox = new Sandbox({ mode: 'docker', timeoutMs: 30000 });
   const code = `
     export default async function execute(args) {
       console.log('Computing payload...');

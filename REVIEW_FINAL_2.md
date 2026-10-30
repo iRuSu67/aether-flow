@@ -331,14 +331,16 @@ The evaluation completed all $N=3$ independent repetitions across all 15 benchma
     `Previous code execution in sandbox failed with error: Execution timed out after 5000ms. Please fix the logic and output updated JavaScript code.`
   - The model updated its implementation with an indexed `minHeap` / priority queue, re-executed in 1,238ms, and passed with ground-truth verification (`retries: 1`).
 
-### Representative Failure 3: Static AST Policy Rejection Self-Healed (`POLICY_BLOCKED` $\rightarrow$ `SUCCESS`)
-- **Task**: `task_1a_markdown_employees` (Markdown table parsing and transformation)
+### Representative Failure 3: Static AST Policy False Rejection (`POLICY_BLOCKED` $\rightarrow$ `SUCCESS`)
+- **Task**: `task_3b_dijkstra_circuit` (Dijkstra Turn Penalties: Circuit Trace Routing)
 - **Condition C0 vs Condition C**:
-  - In **Condition C0**, the model generated code containing an infinite loop guard `while (true)`:
-    `AST Verifier blocked code: Static infinite while loop detected` $\rightarrow$ Scored as `POLICY_BLOCKED`.
+  - In **Condition C0**, the model generated code implementing an optimal binary heap priority queue (`MinPriorityQueue`). Its sift-down method `down(i)` contained a standard `while (true)` loop with an interior `else { break; }`.
+  - The AST verifier naively flagged `while (true)` without checking for internal break statements:
+    `AST Verifier blocked code: POTENTIAL_INFINITE_LOOP: while(true)` $\rightarrow$ Scored as `POLICY_BLOCKED` failure on benign, optimal code.
   - In **Condition C**, the AST error was fed back:
-    `Previous code attempt was rejected by AST security linter with error: Static infinite while loop detected.`
-  - The model refactored the loop into a bounded `for (const line of lines)` loop, passed AST verification, executed in the container, and succeeded.
+    `Previous code attempt was rejected by AST security linter with error: POTENTIAL_INFINITE_LOOP: while(true). Please fix the implementation and output valid compliant JavaScript code.`
+  - The model refactored the heap sift-down loop into a bounded loop condition, passed AST verification, executed in the container, and succeeded with `SUCCESS`.
+  - *Post-Eval Remediation*: The AST verifier has since been upgraded with `hasReachableLoopExit` to permit loops containing reachable `break` or `return` exits.
 
 ---
 
