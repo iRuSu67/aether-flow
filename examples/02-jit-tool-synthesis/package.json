@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "example-jit-tool-synthesis",
   "version": "1.0.0",
   "private": true,
@@ -7,6 +7,6 @@
     "start": "node index.js"
   },
   "dependencies": {
-    "@aether-flow/core": "1.0.0"
+    "@aether-flow/core": "0.1.0"
   }
 }
