@@ -246,15 +246,24 @@ Every API turn captures:
 ## 8. Staged Evaluation Plan, Quotas & Rate Limits
 
 ### Free-Tier Quota Reality & Configurable Limits
-Free-tier API keys for reasoning models (e.g. Gemini 3.8 Flash / Gemini 3.5 Flash) operate under strict constraints verified in Google AI Studio:
+Free-tier API keys for reasoning models (e.g. Gemini 3.8 Flash / Gemini 3.6 Flash) operate under strict constraints verified in Google AI Studio:
 - **RPM:** `5` requests per minute.
 - **Pacing:** Minimum `13` seconds between requests enforced by the rate limiter (`Math.max(13000, 60000 / rpm)`).
 - **TPM:** `250,000` tokens per minute.
 - **RPD:** `20` requests per day hard cap.
+- **Quota Pool Sharing Warning:** Using the same API key in Google AI Studio web playground or inside Antigravity/assistant sessions directly consumes from this same 20 RPD free-tier quota pool.
+- **Live Calls Protection (`--allow-live`):** All live API calls require the explicit `--allow-live` CLI flag. Obsolete scratch scripts that could trigger unbounded or unmetered API calls have been eliminated.
+- **Model Drift & Legacy Aliases:** Gemini 3.6 Flash usage seen on dashboards originated from Google aliasing `gemini-flash-latest` to Gemini 3.6 Flash in early scratch scripts. The evaluation harness pins the exact model identifier `gemini-3.8-flash` exclusively.
 - **Daily Budget (`--daily-budget`):** Default `18` calls per day (leaving a safety margin of 2 calls).
-- **Quota Error Handling:**
-  - Daily quota 429 (`DailyQuotaExhaustedError`): **NEVER retried**. Execution halts immediately with state saved to checkpoint and prompt to resume tomorrow.
-  - Transient per-minute 429s / 503s: Retried up to 2 times with exponential backoff (honoring `retryDelay`). Every retry counts against the daily budget.
+- **Day Boundary Keying:** Daily budgets are strictly keyed to the calendar date in `America/Los_Angeles` (`YYYY-MM-DD`), matching Google AI Studio's Pacific midnight reset boundary.
+  - Pacific midnight corresponds to **08:00 AM Africa/Casablanca time** (during Pacific Daylight Time / 09:00 AM during PST).
+- **Quota Error Handling & Structured Analysis:**
+  - Errors are parsed via structured JSON error details (`error.details[]` checking `ErrorInfo.metadata.quota_metric` and `QuotaFailure` violations).
+  - Daily quota 429 (`DailyQuotaExhaustedError`): **NEVER retried**. The harness persists `blockedUntil` (next Pacific midnight) in `.eval_daily_budget.json` and cleanly refuses all calls before that reset time, displaying the reset time in Africa/Casablanca time.
+  - Transient per-minute 429s (`quota_metric: ...per_minute`): Retried up to 2 times using `RetryInfo.retryDelay` exponential backoff. Every retry counts against the daily budget.
+  - Unclassified 429s (cannot be definitively classified): Retried at most once after `retryDelay`, then halts without blocking the entire day.
+  - On the first real provider error, the full redacted error body (never containing the API key) is saved to `eval_last_provider_error.json` for transparent schema inspection.
+  - Sandbox, runtime, checker, or model-generated code errors containing substrings like "500", "network", "abort", "quota", or "429" are scored as normal task failures (`RUNTIME_ERROR` or `WRONG_OUTPUT`) and are **never** treated as provider errors or excluded from pass rates.
 
 ### Staged Evaluation Architecture
 
@@ -264,7 +273,7 @@ To operate within free-tier limits without compromising experimental rigor, eval
 flowchart TD
     S1["Stage 1: Core Synthesis and Sandboxing<br/>Conditions: A, C0, C | Tasks: 15 | N=1<br/>Calls: 45-90 (Typ: 60) | Duration: ~3-5 Days"]
     S2["Stage 2: Fixed Palette and Skill Reuse<br/>Conditions: B, D | Tasks: 15 | N=1<br/>Calls: 20-105 (Typ: 44) | Duration: ~2-6 Days"]
-    S3["Stage 3: Multi-Run Confidence Intervals<br/>Conditions: A, B, C0, C, D | Tasks: 15 | N=3<br/>Calls: 195-585 | Local Ollama or Paid Tier"]
+    S3["Stage 3: Multi-Run Confidence Intervals<br/>Conditions: A, B, C0, C, D | Tasks: 15 | N=3<br/>Calls: 195-585 | Local Ollama (local/ollama:*)"]
 
     S1 -->|Validates Hypotheses 1 and 2| S2
     S2 -->|Validates Hypotheses 3 and 4| S3
@@ -278,13 +287,22 @@ flowchart TD
 | **Stage 2** | **B, D** | Does dynamic synthesis beat fixed tools (C vs B)? Does reuse save tokens (D vs C)? | 15 | 1 | **20** | **44** | **105** | 18 calls/day | **2-6 days** |
 | **Stage 3** | **A, B, C0, C, D** | Variance reduction & tight Wilson CIs via local model (Ollama) or billing | 15 | 3 | **195** | **312** | **585** | Unmetered (0 API cost) | **< 1 day** |
 
-### Daily Automation Command: `npm run eval:daily`
-Executing `npm run eval:daily` automatically:
-1. Reads `.eval_daily_budget.json` (date-keyed in local timezone) and `eval_checkpoint.json`.
-2. Inspects stage progress and targets the current active stage.
-3. Respects `--daily-budget=18` and 13-second request pacing.
-4. Checkpoints after each task and cleanly exits when the daily budget is reached.
-5. Prints progress summary and tells the user exactly what remains for the next day.
+> [!IMPORTANT]
+> **Strict Model Segregation:** Stage 3 results obtained via local Ollama models are strictly tagged and reported under the separate model identifier `local/ollama:<model-name>`. Local model results are **NEVER** merged, pooled, or combined with Gemini results.
+
+### Automation Commands
+
+- **Daily Automation (`npm run eval:daily`):**
+  1. Inspects `.eval_daily_budget.json` (Pacific date-keyed) and `eval_checkpoint.json`.
+  2. Prints Pacific date, Africa/Casablanca local time, calls used today, remaining budget, and next quota reset time.
+  3. Automatically targets the current active stage (Stage 1 first, then Stage 2).
+  4. Respects `--daily-budget=18` and 13-second request pacing.
+  5. Checkpoints after each task and cleanly exits with a friendly message when the daily budget is reached.
+
+- **Smoke Test Command (`npm run eval:smoke`):**
+  - Executes exactly **ONE** live API call to `gemini-3.8-flash` with the prompt `"Respond with OK"`.
+  - Prints HTTP status, model, thinking level, token usage breakdown, and response text.
+  - Verifies response shape and network connectivity before launching full daily runs.
 
 ---
 

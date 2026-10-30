@@ -2,7 +2,12 @@ import { ResponseCache } from '../cache/ResponseCache.js';
 import { RateLimiter } from '../limiter/RateLimiter.js';
 import { TokenUsage } from '../types.js';
 import { loadEnv } from '../utils/env.js';
-import { ProviderError, isHarnessStopError } from '../utils/errors.js';
+import {
+  ProviderError,
+  isHarnessStopError,
+  analyzeStructuredQuotaError,
+  saveRedactedErrorBody,
+} from '../utils/errors.js';
 
 export { ProviderError };
 
@@ -18,6 +23,19 @@ export interface ModelResponse {
   fromCache: boolean;
 }
 
+export interface SmokeTestResult {
+  httpStatus: number;
+  statusText: string;
+  model: string;
+  thinkingLevel: string;
+  tokenUsage: TokenUsage;
+  responseShape: {
+    candidatesCount: number;
+    finishReason?: string;
+    preview: string;
+  };
+}
+
 export class EvalModelClient {
   private provider: 'mock' | 'gemini' | 'ollama' | 'openai';
   private model: string;
@@ -26,6 +44,7 @@ export class EvalModelClient {
   private cache: ResponseCache;
   private limiter: RateLimiter;
   private openaiBaseUrl?: string;
+  private allowLive: boolean;
 
   constructor(options: {
     provider: 'mock' | 'gemini' | 'ollama' | 'openai';
@@ -35,6 +54,7 @@ export class EvalModelClient {
     cache: ResponseCache;
     limiter: RateLimiter;
     openaiBaseUrl?: string;
+    allowLive?: boolean;
   }) {
     loadEnv();
     this.provider = options.provider;
@@ -44,6 +64,7 @@ export class EvalModelClient {
     this.cache = options.cache;
     this.limiter = options.limiter;
     this.openaiBaseUrl = options.openaiBaseUrl || process.env.OPENAI_BASE_URL;
+    this.allowLive = options.allowLive ?? false;
   }
 
   public getModelName(): string {
@@ -55,12 +76,6 @@ export class EvalModelClient {
   }
 
   public async complete(request: ModelRequest): Promise<ModelResponse> {
-    if (this.provider === 'gemini' && !this.apiKey) {
-      throw new Error(
-        'GEMINI_API_KEY is not set in environment or .env. Please provide a valid Gemini API key to run live evaluation.'
-      );
-    }
-
     const cacheKey = this.cache.makeKey(
       this.provider,
       this.model,
@@ -93,6 +108,12 @@ export class EvalModelClient {
 
     // 3. Gemini API Provider
     if (this.provider === 'gemini') {
+      if (!this.allowLive) {
+        throw new Error(
+          'SAFETY / QUOTA GUARD: Live Gemini API calls are blocked unless --allow-live is explicitly passed. (Using the key also consumes quota in Google AI Studio playground and Antigravity). Use MockProvider (--dry-run) for offline tests, or pass --allow-live to run live.'
+        );
+      }
+
       if (!this.apiKey) {
         throw new Error(
           'GEMINI_API_KEY is not set in environment or .env. Please provide a valid Gemini API key to run live evaluation.'
@@ -136,12 +157,30 @@ export class EvalModelClient {
 
           if (!response.ok) {
             const errText = await response.text();
-            throw new Error(`Gemini API Error (${response.status}): ${errText}`);
+            let parsedBody: unknown;
+            try {
+              parsedBody = JSON.parse(errText);
+            } catch {
+              parsedBody = errText;
+            }
+            saveRedactedErrorBody(parsedBody, 'eval_last_provider_error.json');
+            const quotaAnalysis =
+              response.status === 429 ? analyzeStructuredQuotaError(parsedBody) : undefined;
+            throw new ProviderError(
+              `Gemini API Error (${response.status}): ${errText}`,
+              {
+                httpStatus: response.status,
+                rawErrorBody: parsedBody,
+                quotaAnalysis,
+                isNetworkError: false,
+              }
+            );
           }
 
           const data = (await response.json()) as {
             candidates?: Array<{
               content?: { parts?: Array<{ text?: string; thought?: boolean }> };
+              finishReason?: string;
             }>;
             usageMetadata?: {
               promptTokenCount?: number;
@@ -155,7 +194,6 @@ export class EvalModelClient {
           };
 
           const parts = data.candidates?.[0]?.content?.parts || [];
-          // Pick text from candidates; exclude parts explicitly marked as thinking trace if separated
           const nonThinkingParts = parts.filter((p) => !p.thought);
           const text = (nonThinkingParts.length > 0 ? nonThinkingParts : parts)
             .map((p) => p.text || '')
@@ -182,9 +220,13 @@ export class EvalModelClient {
           return { text, tokens, fromCache: false };
         } catch (err: unknown) {
           if (isHarnessStopError(err)) throw err;
+          if (err instanceof ProviderError) throw err;
           throw new ProviderError(
-            `Gemini Provider Call Failed [model=${this.model}]: ${err instanceof Error ? err.message : String(err)}`,
-            err
+            `Gemini Network Connection Failed [model=${this.model}]: ${err instanceof Error ? err.message : String(err)}`,
+            {
+              isNetworkError: true,
+              originalError: err,
+            }
           );
         } finally {
           clearTimeout(timeout);
@@ -206,7 +248,12 @@ export class EvalModelClient {
           }),
         });
         if (!res.ok) {
-          throw new ProviderError(`Ollama Error (${res.status}): ${await res.text()}`);
+          const errText = await res.text();
+          throw new ProviderError(`Ollama Error (${res.status}): ${errText}`, {
+            httpStatus: res.status,
+            rawErrorBody: errText,
+            isNetworkError: false,
+          });
         }
         const data = (await res.json()) as { response?: string; prompt_eval_count?: number; eval_count?: number };
         const text = data.response || '';
@@ -222,7 +269,10 @@ export class EvalModelClient {
         if (err instanceof ProviderError) throw err;
         throw new ProviderError(
           `Ollama connection failed [model=${this.model}]: ${err instanceof Error ? err.message : String(err)}`,
-          err
+          {
+            isNetworkError: true,
+            originalError: err,
+          }
         );
       }
     }
@@ -258,7 +308,11 @@ export class EvalModelClient {
 
         if (!response.ok) {
           const errText = await response.text();
-          throw new ProviderError(`OpenAI-Compatible API Error (${response.status}): ${errText}`);
+          throw new ProviderError(`OpenAI-Compatible API Error (${response.status}): ${errText}`, {
+            httpStatus: response.status,
+            rawErrorBody: errText,
+            isNetworkError: false,
+          });
         }
 
         const data = (await response.json()) as {
@@ -284,7 +338,10 @@ export class EvalModelClient {
         if (err instanceof ProviderError) throw err;
         throw new ProviderError(
           `OpenAI-compatible call failed [model=${this.model}]: ${err instanceof Error ? err.message : String(err)}`,
-          err
+          {
+            isNetworkError: true,
+            originalError: err,
+          }
         );
       } finally {
         clearTimeout(timeout);
@@ -292,6 +349,87 @@ export class EvalModelClient {
     }
 
     throw new Error(`Unsupported provider: ${this.provider}`);
+  }
+
+  /**
+   * Executes exactly ONE smoke call to verify live model availability and schema shape.
+   */
+  public async executeSmokeCall(): Promise<SmokeTestResult> {
+    if (!this.allowLive) {
+      throw new Error('Must pass --allow-live to run live smoke test.');
+    }
+    if (!this.apiKey) {
+      throw new Error('GEMINI_API_KEY is not set in environment or .env.');
+    }
+
+    // Acquire rate limit slot and increment daily budget
+    await this.limiter.acquire();
+
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.apiKey}`;
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: 'Respond with OK' }] }],
+        generationConfig: {
+          thinkingConfig: { thinkingLevel: this.thinkingLevel },
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      let parsedBody: unknown;
+      try {
+        parsedBody = JSON.parse(errText);
+      } catch {
+        parsedBody = errText;
+      }
+      saveRedactedErrorBody(parsedBody, 'eval_last_provider_error.json');
+      const quotaAnalysis =
+        response.status === 429 ? analyzeStructuredQuotaError(parsedBody) : undefined;
+      throw new ProviderError(`Gemini Smoke Test Error (${response.status}): ${errText}`, {
+        httpStatus: response.status,
+        rawErrorBody: parsedBody,
+        quotaAnalysis,
+        isNetworkError: false,
+      });
+    }
+
+    const data = (await response.json()) as {
+      candidates?: Array<{
+        content?: { parts?: Array<{ text?: string; thought?: boolean }> };
+        finishReason?: string;
+      }>;
+      usageMetadata?: {
+        promptTokenCount?: number;
+        candidatesTokenCount?: number;
+        totalTokenCount?: number;
+        thoughtsTokenCount?: number;
+      };
+    };
+
+    const candidate = data.candidates?.[0];
+    const parts = candidate?.content?.parts || [];
+    const text = parts.map((p) => p.text || '').join('\n').trim();
+    const promptTokens = data.usageMetadata?.promptTokenCount || 0;
+    const thinkingTokens = data.usageMetadata?.thoughtsTokenCount || 0;
+    const totalCandidates = data.usageMetadata?.candidatesTokenCount || 0;
+    const outputTokens = Math.max(0, totalCandidates - thinkingTokens);
+    const totalTokens = data.usageMetadata?.totalTokenCount || promptTokens + totalCandidates;
+
+    return {
+      httpStatus: response.status,
+      statusText: response.statusText,
+      model: this.model,
+      thinkingLevel: this.thinkingLevel,
+      tokenUsage: { promptTokens, thinkingTokens, outputTokens, totalTokens },
+      responseShape: {
+        candidatesCount: data.candidates?.length || 0,
+        finishReason: candidate?.finishReason,
+        preview: text.slice(0, 100),
+      },
+    };
   }
 
   /**
@@ -310,217 +448,38 @@ export class EvalModelClient {
           { Name: 'Charlie Brown', Role: 'Product Manager', Salary: 120000, Active: true, Notes: 'Core | Platform' },
         ]);
       } else {
-        text = JSON.stringify({ answer: 'mock_direct' });
+        // Condition A fails on difficult multi-step tasks when answering directly without computation
+        text = JSON.stringify({ error: 'Direct generation approximation failed' });
       }
-    } else if (request.systemPrompt.includes('FIXED_TOOL_CONDITION_B')) {
-      // Condition B ReAct tool use
-      text = 'I will execute the tool.\n```tool_call\n{"tool": "math_calc", "args": {"expr": "1 + 1"}}\n```';
-    } else {
-      // Conditions C0, C, D: Synthesize tool code
-      if (prompt.includes('markdown') || prompt.includes('Markdown')) {
-        text = `\`\`\`javascript
-export default async function execute(args) {
-  const lines = args.markdown.split(/\\r?\\n/).map(l => l.trim()).filter(l => l.startsWith('|') && l.endsWith('|'));
-  const inner = l => l.replace(/^\\|/, '').replace(/\\|$/, '');
-  const splitCells = l => {
-    const parts = [];
-    let cur = '';
-    const s = inner(l);
-    for (let i = 0; i < s.length; i++) {
-      if (s[i] === '|' && (i === 0 || s[i-1] !== '\\\\')) {
-        parts.push(cur.replace(/\\\\\\|/g, '|').trim());
-        cur = '';
+    } else if (request.systemPrompt.includes('FIXED_TOOL_USE_CONDITION_B')) {
+      // Condition B tool use
+      if (prompt.includes('Employee Directory')) {
+        text = '```tool_call\n{"tool": "array_sort", "args": {"array": []}}\n```';
       } else {
-        cur += s[i];
+        text = '```json\n{"result": "unsupported_by_fixed_palette"}\n```';
       }
-    }
-    parts.push(cur.replace(/\\\\\\|/g, '|').trim());
-    return parts;
-  };
-  const headers = splitCells(lines[0]);
-  const rows = [];
-  for (let i = 2; i < lines.length; i++) {
-    const cells = splitCells(lines[i]);
-    const obj = {};
-    for (let c = 0; c < headers.length; c++) {
-      let v = cells[c] || '';
-      if (v.toLowerCase() === 'true') v = true;
-      else if (v.toLowerCase() === 'false') v = false;
-      else if (/^-?\\d+(\\.\\d+)?$/.test(v)) v = Number(v);
-      obj[headers[c]] = v;
-    }
-    rows.push(obj);
-  }
-  return rows;
-}
-\`\`\``;
-      } else if (prompt.includes('Levenshtein') || prompt.includes('edit distance')) {
-        text = `\`\`\`javascript
-export default async function execute(args) {
-  const s1 = args.source;
-  const s2 = args.target;
-  const m = s1.length;
-  const n = s2.length;
-  const dp = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
-  for (let i = 0; i <= m; i++) dp[i][0] = i;
-  for (let j = 0; j <= n; j++) dp[0][j] = j;
-  for (let i = 1; i <= m; i++) {
-    for (let j = 1; j <= n; j++) {
-      if (s1[i - 1] === s2[j - 1]) dp[i][j] = dp[i - 1][j - 1];
-      else dp[i][j] = 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
-    }
-  }
-  const ops = [];
-  let i = m, j = n;
-  while (i > 0 || j > 0) {
-    if (i > 0 && j > 0 && s1[i - 1] === s2[j - 1]) {
-      ops.push({ op: 'keep', char: s1[i - 1] });
-      i--; j--;
-    } else if (i > 0 && j > 0 && dp[i][j] === dp[i - 1][j - 1] + 1) {
-      ops.push({ op: 'substitute', char: s2[j - 1] });
-      i--; j--;
-    } else if (j > 0 && dp[i][j] === dp[i][j - 1] + 1) {
-      ops.push({ op: 'insert', char: s2[j - 1] });
-      j--;
     } else {
-      ops.push({ op: 'delete', char: s1[i - 1] });
-      i--;
-    }
-  }
-  ops.reverse();
-  return { editDistance: dp[m][n], operations: ops };
-}
-\`\`\``;
-      } else if (prompt.includes('Dijkstra') || prompt.includes('street graph')) {
-        text = `\`\`\`javascript
-export default async function execute(args) {
-  const { edges, start, end, turnPenalties } = args;
-  const adj = new Map();
-  for (const e of edges) {
-    if (!adj.has(e.from)) adj.set(e.from, []);
-    adj.get(e.from).push(e);
-  }
-  const getTurn = (d1, d2) => {
-    if (d1 === d2) return 'straight';
-    const dirs = ['N', 'E', 'S', 'W'];
-    const diff = (dirs.indexOf(d2) - dirs.indexOf(d1) + 4) % 4;
-    if (diff === 1) return 'right';
-    if (diff === 2) return 'uTurn';
-    return 'left';
-  };
-  const dist = new Map();
-  const parent = new Map();
-  const pq = [{ node: start, inDir: null, cost: 0, key: start + '|NONE' }];
-  dist.set(start + '|NONE', 0);
-  parent.set(start + '|NONE', { prevKey: null, node: start });
-  let bestCost = Infinity, bestKey = null;
-  while (pq.length > 0) {
-    pq.sort((a, b) => a.cost - b.cost);
-    const cur = pq.shift();
-    if (cur.cost > (dist.get(cur.key) || Infinity)) continue;
-    if (cur.node === end) {
-      if (cur.cost < bestCost) { bestCost = cur.cost; bestKey = cur.key; }
-      continue;
-    }
-    for (const e of (adj.get(cur.node) || [])) {
-      const penalty = cur.inDir ? turnPenalties[getTurn(cur.inDir, e.direction)] : 0;
-      const nextCost = cur.cost + e.weight + penalty;
-      const nextKey = e.to + '|' + e.direction;
-      if (nextCost < (dist.get(nextKey) || Infinity)) {
-        dist.set(nextKey, nextCost);
-        parent.set(nextKey, { prevKey: cur.key, node: e.to });
-        pq.push({ node: e.to, inDir: e.direction, cost: nextCost, key: nextKey });
-      }
-    }
-  }
-  const path = [];
-  let k = bestKey;
-  while (k) {
-    const p = parent.get(k);
-    if (!p) break;
-    path.push(p.node);
-    k = p.prevKey;
-  }
-  path.reverse();
-  return { path, totalCost: bestCost };
-}
-\`\`\``;
-      } else if (prompt.includes('pivot') || prompt.includes('Pivot')) {
-        text = `\`\`\`javascript
-export default async function execute(args) {
-  const lines = args.csv.trim().split(/\\r?\\n/).filter(Boolean);
-  const headers = lines[0].split(',').map(h => h.trim());
-  const rIdx = headers.indexOf(args.rowField);
-  const cIdx = headers.indexOf(args.colField);
-  const sIdx = headers.indexOf(args.sumField);
-  const aIdx = headers.indexOf(args.avgField);
-  const map = new Map();
-  for (let i = 1; i < lines.length; i++) {
-    const parts = lines[i].split(',').map(p => p.trim());
-    const rKey = parts[rIdx], cKey = parts[cIdx];
-    const sVal = Number(parts[sIdx]) || 0, aVal = Number(parts[aIdx]) || 0;
-    if (!map.has(rKey)) map.set(rKey, new Map());
-    const rMap = map.get(rKey);
-    if (!rMap.has(cKey)) rMap.set(cKey, { sumVal: 0, avgSum: 0, count: 0 });
-    const acc = rMap.get(cKey);
-    acc.sumVal += sVal; acc.avgSum += aVal; acc.count++;
-  }
-  const res = {};
-  for (const [rKey, colMap] of map.entries()) {
-    res[rKey] = {};
-    for (const [cKey, acc] of colMap.entries()) {
-      res[rKey][cKey] = {
-        sum: Number(acc.sumVal.toFixed(2)),
-        avg: acc.count > 0 ? Number((acc.avgSum / acc.count).toFixed(2)) : 0
-      };
-    }
-  }
-  return res;
-}
-\`\`\``;
+      // Condition C0, C, D: generate full JS code
+      if (prompt.includes('Employee Directory') || prompt.includes('Markdown Table')) {
+        text = '```javascript\nexport default async function execute(args) {\n  const input = args.table;\n  const lines = input.trim().split("\\n").filter(l => l.trim().length > 0);\n  const headers = lines[0].split("|").map(h => h.trim()).filter(Boolean);\n  const rows = [];\n  for (let i = 2; i < lines.length; i++) {\n    const cells = lines[i].split("|").map(c => c.trim()).filter((_, idx, arr) => idx > 0 && idx < arr.length - 1);\n    const obj = {};\n    headers.forEach((h, idx) => {\n      let val = cells[idx];\n      if (val === "true") val = true;\n      else if (val === "false") val = false;\n      else if (/^\\d+$/.test(val)) val = Number(val);\n      obj[h] = val;\n    });\n    rows.push(obj);\n  }\n  return rows;\n}\n```';
+      } else if (prompt.includes('Levenshtein') || prompt.includes('alignment')) {
+        text = '```javascript\nexport default async function execute(args) {\n  const s1 = args.seq1;\n  const s2 = args.seq2;\n  const m = s1.length, n = s2.length;\n  const dp = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));\n  for (let i = 0; i <= m; i++) dp[i][0] = i;\n  for (let j = 0; j <= n; j++) dp[0][j] = j;\n  for (let i = 1; i <= m; i++) {\n    for (let j = 1; j <= n; j++) {\n      if (s1[i - 1] === s2[j - 1]) dp[i][j] = dp[i - 1][j - 1];\n      else dp[i][j] = 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);\n    }\n  }\n  return { distance: dp[m][n], operations: [] };\n}\n```';
+      } else if (prompt.includes('Pivot') || prompt.includes('CSV')) {
+        text = '```javascript\nexport default async function execute(args) {\n  const rows = args.data;\n  const pivot = {};\n  for (const r of rows) {\n    if (!pivot[r.Region]) pivot[r.Region] = {};\n    pivot[r.Region][r.Category] = (pivot[r.Region][r.Category] || 0) + r.Sales;\n  }\n  return pivot;\n}\n```';
+      } else if (prompt.includes('Knapsack') || prompt.includes('cargo')) {
+        text = '```javascript\nexport default async function execute(args) {\n  return { max_value: 120, selected_items: ["item_1", "item_3"], total_weight: 45, total_volume: 30 };\n}\n```';
       } else {
-        // Knapsack
-        text = `\`\`\`javascript
-export default async function execute(args) {
-  const { items, maxWeight: W, maxVolume: V } = args;
-  const n = items.length;
-  const dp = Array.from({ length: W + 1 }, () => Array(V + 1).fill(0));
-  const picked = Array.from({ length: n }, () => Array.from({ length: W + 1 }, () => Array(V + 1).fill(false)));
-  for (let i = 0; i < n; i++) {
-    const { weight: w_i, volume: v_i, value: val_i } = items[i];
-    for (let w = W; w >= w_i; w--) {
-      for (let v = V; v >= v_i; v--) {
-        if (dp[w - w_i][v - v_i] + val_i > dp[w][v]) {
-          dp[w][v] = dp[w - w_i][v - v_i] + val_i;
-          picked[i][w][v] = true;
-        }
-      }
-    }
-  }
-  const selectedIds = [];
-  let curW = W, curV = V;
-  for (let i = n - 1; i >= 0; i--) {
-    if (picked[i][curW][curV]) {
-      selectedIds.push(items[i].id);
-      curW -= items[i].weight;
-      curV -= items[i].volume;
-    }
-  }
-  selectedIds.sort((a, b) => a - b);
-  return { selectedIds, totalValue: dp[W][V] };
-}
-\`\`\``;
+        text = '```javascript\nexport default async function execute(args) {\n  throw new Error("Task algorithm not implemented in mock generator");\n}\n```';
       }
     }
 
-    return {
-      text,
-      tokens: {
-        promptTokens: 120,
-        thinkingTokens: 45,
-        outputTokens: 85,
-        totalTokens: 250,
-      },
+    const tokens: TokenUsage = {
+      promptTokens: 120,
+      thinkingTokens: 45,
+      outputTokens: 85,
+      totalTokens: 250,
     };
+
+    return { text, tokens };
   }
 }

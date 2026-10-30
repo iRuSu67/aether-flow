@@ -106,6 +106,7 @@ export interface EvalOptions {
   checkpointFile?: string;
   cacheDir?: string;
   openaiBaseUrl?: string;
+  allowLive?: boolean;
 }
 
 export interface CallEstimates {

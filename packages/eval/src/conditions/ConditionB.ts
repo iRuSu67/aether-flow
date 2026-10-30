@@ -1,7 +1,7 @@
 import { AgentVisibleTask, TaskRunResult, TokenUsage } from '../types.js';
-import { EvalModelClient } from '../providers/EvalModelClient.js';
+import { EvalModelClient, ProviderError } from '../providers/EvalModelClient.js';
 import { extractJsonFromText } from '../utils/json-extractor.js';
-import { isHarnessStopError, isProviderError } from '../utils/errors.js';
+import { isHarnessStopError } from '../utils/errors.js';
 
 // Static tools for Condition B (Weak Baseline)
 function executeStaticTool(toolName: string, args: Record<string, any>): any {
@@ -160,7 +160,7 @@ If you have the final answer, output strictly in JSON:
       throw err;
     }
     const latencyMs = performance.now() - startTime;
-    const isProv = isProviderError(err);
+    const isProv = err instanceof ProviderError;
     return {
       taskId: task.id,
       familyId: task.familyId,

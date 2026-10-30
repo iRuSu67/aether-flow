@@ -24,6 +24,7 @@ gemini.env
 .eval_cache*/
 .eval_daily_budget*.json
 eval_checkpoint.json
+*eval_last_provider_error.json
 
 # OS & Editor
 .DS_Store

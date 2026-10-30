@@ -1,37 +1,17 @@
-import { DailyBudgetManager, DailyBudgetExceededError, DailyQuotaExhaustedError } from './DailyBudgetManager.js';
+import {
+  DailyBudgetManager,
+  DailyBudgetExceededError,
+  DailyQuotaExhaustedError,
+} from './DailyBudgetManager.js';
+import {
+  ProviderError,
+  analyzeStructuredQuotaError,
+  saveRedactedErrorBody,
+  BudgetExceededError,
+  StructuredQuotaAnalysis,
+} from '../utils/errors.js';
 
-export { DailyBudgetExceededError, DailyQuotaExhaustedError };
-
-export class BudgetExceededError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'BudgetExceededError';
-  }
-}
-
-export function isDailyQuotaExhausted(err: unknown): boolean {
-  if (!(err instanceof Error)) return false;
-  const msg = err.message.toLowerCase();
-  return (
-    msg.includes('per-day') ||
-    msg.includes('queries per day') ||
-    msg.includes('per day') ||
-    msg.includes('requestsperday') ||
-    msg.includes('requests_per_day') ||
-    msg.includes('daily') ||
-    msg.includes('quota exceeded for metric') ||
-    (msg.includes('resource_exhausted') && !msg.includes('per-minute') && !msg.includes('minute'))
-  );
-}
-
-export function parseRetryDelayMs(err: unknown): number | null {
-  if (!(err instanceof Error)) return null;
-  const match = err.message.match(/retryDelay[:\s"']+(\d+(?:\.\d+)?)\s*s/i);
-  if (match) {
-    return Math.ceil(parseFloat(match[1]) * 1000);
-  }
-  return null;
-}
+export { DailyBudgetExceededError, DailyQuotaExhaustedError, BudgetExceededError };
 
 export interface RateLimiterOptions {
   rpm?: number;
@@ -52,6 +32,7 @@ export class RateLimiter {
   public readonly dailyBudget: DailyBudgetManager;
   public apiCallsMade = 0;
   private lastCallTime = 0;
+  private savedFirstError = false;
 
   constructor(options?: RateLimiterOptions) {
     this.rpm = options?.rpm ?? 5;
@@ -73,7 +54,7 @@ export class RateLimiter {
       );
     }
 
-    // 2. Check persistent daily budget counter
+    // 2. Check persistent daily budget & blocked state (Pacific date boundary)
     this.dailyBudget.checkBudgetOrThrow();
 
     // 3. Pacing: pace at least minPacingMs (>= 13s) and 60000 / rpm
@@ -94,7 +75,7 @@ export class RateLimiter {
     this.dailyBudget.recordCall();
   }
 
-  public async executeWithRetry<T>(fn: () => Promise<T>, maxRetries = 2): Promise<T> {
+  public async executeWithRetry<T>(fn: () => Promise<T>): Promise<T> {
     let attempt = 0;
     while (true) {
       try {
@@ -106,32 +87,68 @@ export class RateLimiter {
           throw err;
         }
 
-        // Daily quota exhausted from provider (RPD exhausted): NEVER retry
-        if (isDailyQuotaExhausted(err)) {
-          throw new DailyQuotaExhaustedError(
-            `[DAILY QUOTA EXHAUSTED] Provider returned RPD quota exhaustion. Never retrying today. Progress checkpointed. Run 'npm run eval:daily' tomorrow to resume.\nDetails: ${err instanceof Error ? err.message : String(err)}`
-          );
+        // Save first real provider error body (redacted)
+        if (!this.savedFirstError && err instanceof ProviderError && err.rawErrorBody) {
+          this.savedFirstError = true;
+          saveRedactedErrorBody(err.rawErrorBody, 'eval_last_provider_error.json');
         }
 
-        // Transient per-minute 429 or 503 overload: retry up to maxRetries (2)
-        const isTransientRetryable =
-          err instanceof Error &&
-          (err.message.includes('429') ||
-            err.message.includes('503') ||
-            err.message.toLowerCase().includes('high demand') ||
-            err.message.toLowerCase().includes('unavailable') ||
-            err.message.toLowerCase().includes('resource_exhausted'));
+        // Analyze quota error if it's a 429
+        if (err instanceof ProviderError && err.httpStatus === 429) {
+          const quotaAnalysis: StructuredQuotaAnalysis =
+            err.quotaAnalysis ?? analyzeStructuredQuotaError(err.rawErrorBody);
 
-        if (isTransientRetryable && attempt < maxRetries) {
+          // 1. Structured DAILY Quota Exhausted: NEVER retry, persist blockedUntil
+          if (quotaAnalysis.type === 'DAILY') {
+            const nextMidnight = this.dailyBudget.getNextResetTime();
+            this.dailyBudget.setBlockedUntil(nextMidnight);
+            const reset = this.dailyBudget.getNextResetDisplay('Africa/Casablanca');
+            throw new DailyQuotaExhaustedError(
+              `[DAILY QUOTA EXHAUSTED] Provider returned structured per-day quota exhaustion (${quotaAnalysis.reason}). Blocked until next Pacific midnight (${reset.casablanca} Casablanca time / ${reset.pacific} Pacific). Stopping immediately without retries.`,
+              { resetTimeCasablanca: reset.casablanca, blockedUntil: nextMidnight.toISOString() }
+            );
+          }
+
+          // 2. Structured PER_MINUTE Quota Limit: Retry up to 2 times
+          if (quotaAnalysis.type === 'PER_MINUTE') {
+            const maxRetries = 2;
+            if (attempt < maxRetries) {
+              attempt++;
+              const baseDelay = quotaAnalysis.retryDelayMs ?? Math.max(13000, Math.pow(2, attempt) * 10000);
+              const jitter = Math.floor(Math.random() * 2000);
+              const backoffMs = baseDelay + jitter;
+              console.warn(
+                `[API RETRY (PER-MINUTE 429)] Backing off for ${(backoffMs / 1000).toFixed(1)}s (Attempt ${attempt}/${maxRetries}). Every retry counts against daily budget...`
+              );
+              await new Promise((resolve) => setTimeout(resolve, backoffMs));
+              continue;
+            }
+            throw err;
+          }
+
+          // 3. UNCLASSIFIED 429: Retry at most ONCE after retryDelay, then stop (do NOT mark day exhausted)
+          const maxUnclassifiedRetries = 1;
+          if (attempt < maxUnclassifiedRetries) {
+            attempt++;
+            const backoffMs = quotaAnalysis.retryDelayMs ?? 15000;
+            console.warn(
+              `[API RETRY (UNCLASSIFIED 429)] Cannot classify quota metric. Retrying at most once after ${(backoffMs / 1000).toFixed(1)}s (Attempt ${attempt}/1)...`
+            );
+            await new Promise((resolve) => setTimeout(resolve, backoffMs));
+            continue;
+          }
+          throw err;
+        }
+
+        // Transient 503 / High demand overload: retry up to 2 times
+        const isTransient503 =
+          err instanceof ProviderError && (err.httpStatus === 503 || err.isNetworkError);
+
+        if (isTransient503 && attempt < 2) {
           attempt++;
-          // Check if provider suggested a retryDelay
-          const suggestedDelay = parseRetryDelayMs(err);
-          const baseDelay = suggestedDelay ?? Math.max(13000, Math.pow(2, attempt) * 10000);
-          const jitter = Math.floor(Math.random() * 2000);
-          const backoffMs = baseDelay + jitter;
-
+          const backoffMs = Math.max(13000, Math.pow(2, attempt) * 10000);
           console.warn(
-            `[API RETRY ${isTransientRetryable ? '429/503' : 'ERROR'}] Pacing backoff for ${(backoffMs / 1000).toFixed(1)}s (Attempt ${attempt}/${maxRetries}). Every retry counts against daily budget...`
+            `[API RETRY (503/NETWORK)] Backing off for ${(backoffMs / 1000).toFixed(1)}s (Attempt ${attempt}/2). Every retry counts against daily budget...`
           );
           await new Promise((resolve) => setTimeout(resolve, backoffMs));
           continue;

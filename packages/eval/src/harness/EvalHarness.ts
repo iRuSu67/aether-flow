@@ -76,6 +76,7 @@ export class EvalHarness {
       checkpointFile: options.checkpointFile ?? 'eval_checkpoint.json',
       cacheDir: options.cacheDir ?? defaultCacheDir,
       openaiBaseUrl: options.openaiBaseUrl,
+      allowLive: options.allowLive ?? false,
     };
 
     this.cache = new ResponseCache(this.options.cacheDir);
@@ -95,6 +96,7 @@ export class EvalHarness {
       cache: this.cache,
       limiter: this.limiter,
       openaiBaseUrl: this.options.openaiBaseUrl,
+      allowLive: this.options.allowLive,
     });
     this.astVerifier = new ASTVerifier();
     this.library = new ToolLibrary();

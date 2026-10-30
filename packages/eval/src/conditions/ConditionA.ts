@@ -1,7 +1,7 @@
 import { AgentVisibleTask, TaskRunResult } from '../types.js';
-import { EvalModelClient } from '../providers/EvalModelClient.js';
+import { EvalModelClient, ProviderError } from '../providers/EvalModelClient.js';
 import { extractJsonFromText } from '../utils/json-extractor.js';
-import { isHarnessStopError, isProviderError } from '../utils/errors.js';
+import { isHarnessStopError } from '../utils/errors.js';
 
 export async function runConditionA(
   task: AgentVisibleTask,
@@ -62,7 +62,7 @@ You MUST output your final answer strictly in valid JSON matching the required f
       throw err;
     }
     const latencyMs = performance.now() - startTime;
-    const isProv = isProviderError(err);
+    const isProv = err instanceof ProviderError;
     return {
       taskId: task.id,
       familyId: task.familyId,

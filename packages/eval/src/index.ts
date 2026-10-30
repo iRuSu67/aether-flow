@@ -1,6 +1,9 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { EvalHarness } from './harness/EvalHarness.js';
+import { EvalModelClient } from './providers/EvalModelClient.js';
+import { ResponseCache } from './cache/ResponseCache.js';
+import { RateLimiter } from './limiter/RateLimiter.js';
 import { EvalOptions } from './types.js';
 import { loadEnv } from './utils/env.js';
 import { runDailyEval } from './harness/dailyRunner.js';
@@ -17,6 +20,7 @@ async function main() {
   const args = process.argv.slice(2);
   const options: Partial<EvalOptions> = {};
   let isDaily = false;
+  let isSmoke = false;
 
   for (const arg of args) {
     if (arg.startsWith('--provider=')) {
@@ -42,6 +46,10 @@ async function main() {
       options.runs = 1;
     } else if (arg === '--daily') {
       isDaily = true;
+    } else if (arg === '--smoke') {
+      isSmoke = true;
+    } else if (arg === '--allow-live') {
+      options.allowLive = true;
     } else if (arg === '--small-run') {
       // 3 tasks from family 1 (variants a, b, c) to demonstrate tool reuse in Condition D
       options.taskIds = [
@@ -50,9 +58,53 @@ async function main() {
         'task_1c_markdown_transactions',
       ];
       options.runs = 1;
+    } else if (arg.startsWith('--checkpoint-file=')) {
+      options.checkpointFile = arg.split('=')[1];
     } else if (arg === '--resume') {
       options.resume = true;
     }
+  }
+
+  if (isSmoke) {
+    const cache = new ResponseCache(options.cacheDir ?? '.eval_cache');
+    const limiter = new RateLimiter({
+      rpm: options.rpm ?? 5,
+      tpm: options.tpm ?? 250000,
+      rpd: options.rpd ?? 20,
+      dailyBudget: options.dailyBudget ?? 18,
+      maxCalls: 1,
+      minPacingMs: 13000,
+    });
+    const client = new EvalModelClient({
+      provider: options.provider ?? 'gemini',
+      model: options.model ?? 'gemini-3.8-flash',
+      thinkingLevel: options.thinkingLevel ?? 'medium',
+      allowLive: options.allowLive ?? false,
+      cache,
+      limiter,
+    });
+    console.log('================================================================');
+    console.log('                 EVAL SMOKE TEST (1 LIVE CALL)                  ');
+    console.log('================================================================');
+    console.log(`Model:          ${options.model ?? 'gemini-3.8-flash'}`);
+    console.log(`Thinking Level: ${options.thinkingLevel ?? 'medium'}`);
+    console.log(`Allow Live:     ${options.allowLive ? 'YES' : 'NO'}`);
+    console.log('Executing single smoke call ("Respond with OK")...\n');
+    const result = await client.executeSmokeCall();
+    console.log('----------------------------------------------------------------');
+    console.log(`HTTP Status:    ${result.httpStatus} ${result.statusText}`);
+    console.log(`Model:          ${result.model}`);
+    console.log(`Thinking Level: ${result.thinkingLevel}`);
+    console.log(`Prompt Tokens:  ${result.tokenUsage.promptTokens}`);
+    console.log(`Thinking Tokens:${result.tokenUsage.thinkingTokens}`);
+    console.log(`Output Tokens:  ${result.tokenUsage.outputTokens}`);
+    console.log(`Total Tokens:   ${result.tokenUsage.totalTokens}`);
+    console.log(`Finish Reason:  ${result.responseShape.finishReason ?? 'STOP'}`);
+    console.log(`Response Text:  ${JSON.stringify(result.responseShape.preview)}`);
+    console.log('----------------------------------------------------------------');
+    console.log('✔ Smoke test verified valid response shape and model connectivity.');
+    console.log('================================================================\n');
+    return;
   }
 
   if (isDaily) {

@@ -1,15 +1,19 @@
 import { ALL_TASKS } from '../tasks/registry.js';
 import { CheckpointManager } from '../checkpoints/CheckpointManager.js';
-import { DailyBudgetManager, getLocalDateString } from '../limiter/DailyBudgetManager.js';
+import { DailyBudgetManager, formatInTimezone } from '../limiter/DailyBudgetManager.js';
 import { EvalHarness } from './EvalHarness.js';
 import { ConditionId, EvalOptions } from '../types.js';
 
 export interface DailyStatus {
-  date: string;
-  timezone: string;
+  datePacific: string;
+  timeCasablanca: string;
   callsToday: number;
   maxDailyBudget: number;
   remainingCalls: number;
+  nextResetCasablanca: string;
+  nextResetPacific: string;
+  isBlocked: boolean;
+  blockedUntil?: string | null;
   stage: 1 | 2 | 3;
   stageName: string;
   stageTotalItems: number;
@@ -26,6 +30,7 @@ export function computeDailyStatus(
   const budget = new DailyBudgetManager(budgetFile, maxDailyBudget);
   const checkpoint = new CheckpointManager(checkpointFile);
   const tasks = ALL_TASKS;
+  const now = new Date();
 
   const s1Conds: ConditionId[] = ['A', 'C0', 'C'];
   const s2Conds: ConditionId[] = ['B', 'D'];
@@ -68,12 +73,22 @@ export function computeDailyStatus(
     allDone = true;
   }
 
+  const resetDisplay = budget.getNextResetDisplay('Africa/Casablanca');
+  const timeCasablanca = formatInTimezone(now, 'Africa/Casablanca');
+  const datePacific = budget.getPacificDate();
+  const isBlocked = budget.isBlocked(now);
+  const blockedUntil = budget.getBlockedUntil()?.toISOString() ?? null;
+
   return {
-    date: getLocalDateString(),
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+    datePacific,
+    timeCasablanca,
     callsToday: budget.getCallsToday(),
     maxDailyBudget: budget.getMaxBudget(),
     remainingCalls: budget.getRemainingCalls(),
+    nextResetCasablanca: resetDisplay.casablanca,
+    nextResetPacific: resetDisplay.pacific,
+    isBlocked,
+    blockedUntil,
     stage,
     stageName,
     stageTotalItems,
@@ -91,13 +106,18 @@ export async function runDailyEval(options: Partial<EvalOptions> = {}): Promise<
   console.log('================================================================');
   console.log('            AETHERFLOW DAILY STAGED EVALUATION RUNNER           ');
   console.log('================================================================');
-  console.log(`Date: ${status.date} [${status.timezone}]`);
+  console.log(`Pacific Date:     ${status.datePacific} (Google AI Studio reset boundary)`);
+  console.log(`Casablanca Time:  ${status.timeCasablanca}`);
   console.log(
-    `Daily Call Budget: ${status.callsToday}/${status.maxDailyBudget} calls used today (Remaining: ${status.remainingCalls})`
+    `Calls Used Today: ${status.callsToday}/${status.maxDailyBudget} (Remaining Budget: ${status.remainingCalls})`
   );
-  console.log(`Current Target: ${status.stageName}`);
+  console.log(`Next Quota Reset: ${status.nextResetCasablanca} (${status.nextResetPacific})`);
+  if (status.isBlocked) {
+    console.log(`⚠️ STATUS: QUOTA BLOCKED until ${status.nextResetCasablanca} due to Google 429`);
+  }
+  console.log(`Current Target:   ${status.stageName}`);
   console.log(
-    `Stage Progress: ${status.stageCompletedItems}/${status.stageTotalItems} task-condition pairs completed (${status.stageRemainingItems} remaining)`
+    `Stage Progress:   ${status.stageCompletedItems}/${status.stageTotalItems} task-condition pairs completed (${status.stageRemainingItems} remaining)`
   );
   console.log('================================================================\n');
 
@@ -107,10 +127,17 @@ export async function runDailyEval(options: Partial<EvalOptions> = {}): Promise<
     return;
   }
 
+  if (status.isBlocked) {
+    console.log(`[DAILY QUOTA EXHAUSTED] Google API daily quota is exhausted.`);
+    console.log(`Blocked until next Pacific midnight: ${status.nextResetCasablanca} (Casablanca time).`);
+    console.log('State is safely preserved in checkpoint. Run "npm run eval:daily" after reset to continue.\n');
+    return;
+  }
+
   if (status.remainingCalls <= 0) {
     console.log(`[DAILY BUDGET EXHAUSTED] Today's budget of ${status.maxDailyBudget} calls is already used up.`);
     console.log('State is safely preserved in checkpoint.');
-    console.log('Run "npm run eval:daily" tomorrow after Google API quota reset to continue.\n');
+    console.log(`Next reset at ${status.nextResetCasablanca} (Casablanca time). Run "npm run eval:daily" tomorrow after reset.\n`);
     return;
   }
 
@@ -132,9 +159,13 @@ export async function runDailyEval(options: Partial<EvalOptions> = {}): Promise<
   console.log('\n================================================================');
   console.log('                    TODAY\'S RUN SUMMARY                         ');
   console.log('================================================================');
+  console.log(`Pacific Date:     ${finalStatus.datePacific}`);
+  console.log(`Casablanca Time:  ${finalStatus.timeCasablanca}`);
   console.log(
     `Calls Used Today: ${finalStatus.callsToday}/${finalStatus.maxDailyBudget} (Calls made this session: ${finalStatus.callsToday - status.callsToday})`
   );
+  console.log(`Remaining Budget: ${finalStatus.remainingCalls}`);
+  console.log(`Next Quota Reset: ${finalStatus.nextResetCasablanca} (${finalStatus.nextResetPacific})`);
   console.log(
     `Stage Progress:   ${finalStatus.stageCompletedItems}/${finalStatus.stageTotalItems} completed (${finalStatus.stageRemainingItems} remaining)`
   );
@@ -142,7 +173,7 @@ export async function runDailyEval(options: Partial<EvalOptions> = {}): Promise<
     console.log(`✔ ${finalStatus.stageName} is COMPLETE!`);
   } else {
     console.log(`Remaining work: ${finalStatus.stageRemainingItems} items left in ${finalStatus.stageName}`);
-    console.log(`Run 'npm run eval:daily' again tomorrow to continue.`);
+    console.log(`Run 'npm run eval:daily' again tomorrow after ${finalStatus.nextResetCasablanca} to continue.`);
   }
   console.log('================================================================\n');
 }

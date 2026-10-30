@@ -24,6 +24,7 @@
     "benchmark": "node benchmarks/run_benchmarks.js",
     "eval": "node --dns-result-order=ipv4first packages/eval/dist/index.js",
     "eval:daily": "node --dns-result-order=ipv4first packages/eval/dist/index.js --daily",
+    "eval:smoke": "node --dns-result-order=ipv4first packages/eval/dist/index.js --smoke --allow-live",
     "eval:mock": "node packages/eval/dist/index.js --dry-run"
   },
   "devDependencies": {

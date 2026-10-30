@@ -1,10 +1,10 @@
 import { ASTVerifier, Sandbox } from '@aether-flow/core';
 import { AgentVisibleTask, TaskRunResult } from '../types.js';
-import { EvalModelClient } from '../providers/EvalModelClient.js';
+import { EvalModelClient, ProviderError } from '../providers/EvalModelClient.js';
 import { runConditionC } from './ConditionC.js';
 import { ToolLibrary } from './ToolLibrary.js';
 import { deepEquals } from '../utils/deep-equals.js';
-import { isHarnessStopError, isProviderError } from '../utils/errors.js';
+import { isHarnessStopError } from '../utils/errors.js';
 
 export { ToolLibrary } from './ToolLibrary.js';
 
@@ -69,7 +69,7 @@ export async function runConditionD(
       throw err;
     }
     const latencyMs = performance.now() - startTime;
-    const isProv = isProviderError(err);
+    const isProv = err instanceof ProviderError;
     return {
       taskId: task.id,
       familyId: task.familyId,

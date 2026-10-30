@@ -9,11 +9,26 @@ import { runConditionC0 } from '../conditions/ConditionC0.js';
 import { runConditionC } from '../conditions/ConditionC.js';
 import { runConditionD, ToolLibrary } from '../conditions/ConditionD.js';
 import { estimateApiCalls, estimateStagedEvaluation } from '../harness/estimator.js';
-import { RateLimiter, DailyQuotaExhaustedError, isDailyQuotaExhausted, parseRetryDelayMs } from '../limiter/RateLimiter.js';
-import { DailyBudgetManager, DailyBudgetExceededError } from '../limiter/DailyBudgetManager.js';
+import { RateLimiter } from '../limiter/RateLimiter.js';
+import {
+  DailyBudgetManager,
+  getPacificDateString,
+  getNextPacificMidnight,
+  formatInTimezone,
+} from '../limiter/DailyBudgetManager.js';
+import {
+  ProviderError,
+  DailyQuotaExhaustedError,
+  DailyBudgetExceededError,
+  analyzeStructuredQuotaError,
+  saveRedactedErrorBody,
+} from '../utils/errors.js';
 import { ResponseCache } from '../cache/ResponseCache.js';
 import { EvalModelClient } from '../providers/EvalModelClient.js';
-import { task_1a_markdown_employees, task_1b_markdown_servers } from '../tasks/definitions/family1_markdown_table.js';
+import {
+  task_1a_markdown_employees,
+  task_1b_markdown_servers,
+} from '../tasks/definitions/family1_markdown_table.js';
 import { task_5a_knapsack_cargo } from '../tasks/definitions/family5_knapsack_dual.js';
 import { AgentVisibleTask } from '../types.js';
 import { computeDailyStatus } from '../harness/dailyRunner.js';
@@ -187,8 +202,58 @@ test('DAILY BUDGET COUNTER: Enforces call limits and throws DailyBudgetExceededE
   if (fs.existsSync(testBudgetFile)) fs.unlinkSync(testBudgetFile);
 });
 
-test('RATE LIMITER: Distinguishes Daily Quota 429 from Transient 429, counts retries against budget', async () => {
-  const testBudgetFile = '.eval_daily_budget_rl_test.json';
+test('TYPED PROVIDER ERROR VS TASK ERROR: Errors in sandbox code containing "500", "network", "abort", "quota", "429" are scored as normal task failures and NOT excluded', async () => {
+  const sandbox = new Sandbox({ mode: 'subprocess', unsafeDevMode: true });
+  const astVerifier = new ASTVerifier();
+
+  // Mock client that returns code throwing a simulated HTTP 500 network abort quota 429 error
+  const codeThrowingSuspiciousError = `
+export default async function execute(args) {
+  throw new Error("HTTP 500 network connection abort quota 429 resource exhausted");
+}
+`;
+  const mockClient = {
+    complete: async () => ({
+      text: '```typescript\n' + codeThrowingSuspiciousError + '\n```',
+      tokens: { promptTokens: 10, thinkingTokens: 0, outputTokens: 20, totalTokens: 30 },
+      fromCache: false,
+    }),
+  } as unknown as EvalModelClient;
+
+  const agentTask: AgentVisibleTask = {
+    id: task_1a_markdown_employees.id,
+    familyId: task_1a_markdown_employees.familyId,
+    variant: task_1a_markdown_employees.variant,
+    title: task_1a_markdown_employees.title,
+    domain: task_1a_markdown_employees.domain,
+    prompt: task_1a_markdown_employees.prompt,
+    input: task_1a_markdown_employees.input,
+    example: task_1a_markdown_employees.example,
+  };
+
+  // Run in Condition C0 (no retry loop)
+  const resultC0 = await runConditionC0(agentTask, 0, mockClient, sandbox, astVerifier);
+  assert.equal(resultC0.pass, false);
+  assert.equal(
+    resultC0.errorTaxonomy,
+    'RUNTIME_ERROR',
+    'Sandbox error containing HTTP keywords must be scored as RUNTIME_ERROR, NOT PROVIDER_ERROR'
+  );
+  assert.notEqual(resultC0.errorTaxonomy, 'PROVIDER_ERROR');
+
+  // Run in Condition C (synthesis loop retries and eventually fails as normal task failure)
+  const resultC = await runConditionC(agentTask, 0, mockClient, sandbox, astVerifier);
+  assert.equal(resultC.pass, false);
+  assert.equal(
+    resultC.errorTaxonomy,
+    'RUNTIME_ERROR',
+    'Condition C must score repeated sandbox runtime failure as RUNTIME_ERROR, NOT PROVIDER_ERROR'
+  );
+  assert.notEqual(resultC.errorTaxonomy, 'PROVIDER_ERROR');
+});
+
+test('STRUCTURED 429 FIXTURE - DAILY QUOTA: Identifies daily metric, sets blockedUntil to Pacific midnight, stops with 0 retries', async () => {
+  const testBudgetFile = '.eval_daily_budget_fixture_daily.json';
   if (fs.existsSync(testBudgetFile)) fs.unlinkSync(testBudgetFile);
 
   const budget = new DailyBudgetManager(testBudgetFile, 10);
@@ -198,37 +263,246 @@ test('RATE LIMITER: Distinguishes Daily Quota 429 from Transient 429, counts ret
     minPacingMs: 0,
   });
 
-  // 1. Daily Quota Exhausted: MUST NOT retry and throws DailyQuotaExhaustedError
-  let dailyAttempts = 0;
+  const daily429Fixture = {
+    error: {
+      code: 429,
+      message: 'Resource has been exhausted (e.g. check quota).',
+      status: 'RESOURCE_EXHAUSTED',
+      details: [
+        {
+          '@type': 'type.googleapis.com/google.rpc.ErrorInfo',
+          reason: 'RATE_LIMIT_EXCEEDED',
+          domain: 'googleapis.com',
+          metadata: {
+            quota_metric: 'generativelanguage.googleapis.com/generate_content_requests_per_day',
+            quota_id: 'GenerateContentRequestsPerDayPerProjectPerBaseModel',
+            service: 'generativelanguage.googleapis.com',
+          },
+        },
+      ],
+    },
+  };
+
+  const parsed = analyzeStructuredQuotaError(daily429Fixture);
+  assert.equal(parsed.type, 'DAILY');
+
+  let attempts = 0;
   await assert.rejects(
     async () => {
       await limiter.executeWithRetry(async () => {
-        dailyAttempts++;
-        throw new Error('429 Resource has been exhausted (e.g. check quota). Queries per day exceeded.');
-      }, 2);
+        attempts++;
+        throw new ProviderError('Simulated Daily 429', {
+          httpStatus: 429,
+          rawErrorBody: daily429Fixture,
+          quotaAnalysis: parsed,
+        });
+      });
     },
     DailyQuotaExhaustedError,
-    'Must throw DailyQuotaExhaustedError immediately without retrying'
+    'Must throw DailyQuotaExhaustedError'
   );
-  assert.equal(dailyAttempts, 1, 'Must execute exactly 1 attempt on daily quota error (0 retries)');
-  assert.equal(budget.getCallsToday(), 1, 'Initial failed attempt must count against daily budget');
 
-  // 2. Transient 429: Retries up to 2 times, each retry counting against daily budget
-  let transientAttempts = 0;
-  const result = await limiter.executeWithRetry(async () => {
-    transientAttempts++;
-    if (transientAttempts < 2) {
-      throw new Error('429 Too Many Requests: per-minute rate limit reached. retryDelay: 0.1s');
-    }
-    return 'TRANSIENT_RECOVERED';
-  }, 2);
+  assert.equal(attempts, 1, 'Must NOT retry on structured daily quota 429 (0 retries)');
+  assert.equal(budget.getCallsToday(), 1, 'Failed attempt must count against daily budget');
+  assert.ok(budget.isBlocked(), 'Must set isBlocked to true after structured daily quota 429');
+  assert.ok(budget.getBlockedUntil() !== null, 'Must record blockedUntil date');
 
-  assert.equal(result, 'TRANSIENT_RECOVERED');
-  assert.equal(transientAttempts, 2, 'Should succeed on retry attempt 2');
-  // 1 from daily test + 2 from transient test = 3 total calls recorded
-  assert.equal(budget.getCallsToday(), 3, 'Both initial call and retry attempt must count against daily budget');
+  // Verify subsequent call is blocked immediately
+  assert.throws(
+    () => budget.checkBudgetOrThrow(),
+    DailyQuotaExhaustedError,
+    'Subsequent checkBudgetOrThrow must refuse calls while isBlocked is active'
+  );
 
   if (fs.existsSync(testBudgetFile)) fs.unlinkSync(testBudgetFile);
+});
+
+test('STRUCTURED 429 FIXTURE - PER-MINUTE: Identifies per-minute metric, parses retryDelay, retries up to 2 times, counts all retries', async () => {
+  const testBudgetFile = '.eval_daily_budget_fixture_minute.json';
+  if (fs.existsSync(testBudgetFile)) fs.unlinkSync(testBudgetFile);
+
+  const budget = new DailyBudgetManager(testBudgetFile, 10);
+  const limiter = new RateLimiter({
+    rpm: 60,
+    dailyBudgetManager: budget,
+    minPacingMs: 0,
+  });
+
+  const minute429Fixture = {
+    error: {
+      code: 429,
+      message: 'Resource has been exhausted (e.g. check quota).',
+      status: 'RESOURCE_EXHAUSTED',
+      details: [
+        {
+          '@type': 'type.googleapis.com/google.rpc.ErrorInfo',
+          reason: 'RATE_LIMIT_EXCEEDED',
+          domain: 'googleapis.com',
+          metadata: {
+            quota_metric: 'generativelanguage.googleapis.com/generate_content_requests_per_minute',
+            quota_id: 'GenerateContentRequestsPerMinutePerProjectPerBaseModel',
+          },
+        },
+        {
+          '@type': 'type.googleapis.com/google.rpc.RetryInfo',
+          retryDelay: '0.01s',
+        },
+      ],
+    },
+  };
+
+  const parsed = analyzeStructuredQuotaError(minute429Fixture);
+  assert.equal(parsed.type, 'PER_MINUTE');
+  assert.equal(parsed.retryDelayMs, 10);
+
+  let attempts = 0;
+  const result = await limiter.executeWithRetry(async () => {
+    attempts++;
+    if (attempts < 2) {
+      throw new ProviderError('Simulated Per-Minute 429', {
+        httpStatus: 429,
+        rawErrorBody: minute429Fixture,
+        quotaAnalysis: parsed,
+      });
+    }
+    return 'MINUTE_RETRY_SUCCESS';
+  });
+
+  assert.equal(result, 'MINUTE_RETRY_SUCCESS');
+  assert.equal(attempts, 2, 'Must retry per-minute 429');
+  assert.equal(budget.getCallsToday(), 2, 'Both initial and retry call must be recorded in daily budget');
+  assert.equal(budget.isBlocked(), false, 'Per-minute 429 must NOT block the day');
+
+  if (fs.existsSync(testBudgetFile)) fs.unlinkSync(testBudgetFile);
+});
+
+test('STRUCTURED 429 FIXTURE - UNCLASSIFIED: Retries at most once, does NOT block the day', async () => {
+  const testBudgetFile = '.eval_daily_budget_fixture_unclass.json';
+  if (fs.existsSync(testBudgetFile)) fs.unlinkSync(testBudgetFile);
+
+  const budget = new DailyBudgetManager(testBudgetFile, 10);
+  const limiter = new RateLimiter({
+    rpm: 60,
+    dailyBudgetManager: budget,
+    minPacingMs: 0,
+  });
+
+  const unclassified429Fixture = {
+    error: {
+      code: 429,
+      message: 'Unknown rate limit exceeded.',
+      status: 'RESOURCE_EXHAUSTED',
+      details: [
+        {
+          '@type': 'type.googleapis.com/google.rpc.RetryInfo',
+          retryDelay: '0.01s',
+        },
+      ],
+    },
+  };
+
+  const parsed = analyzeStructuredQuotaError(unclassified429Fixture);
+  assert.equal(parsed.type, 'UNCLASSIFIED');
+  assert.equal(parsed.retryDelayMs, 10);
+
+  let attempts = 0;
+  await assert.rejects(
+    async () => {
+      await limiter.executeWithRetry(async () => {
+        attempts++;
+        throw new ProviderError('Simulated Unclassified 429', {
+          httpStatus: 429,
+          rawErrorBody: unclassified429Fixture,
+          quotaAnalysis: parsed,
+        });
+      });
+    },
+    ProviderError,
+    'Must fail with ProviderError after retry'
+  );
+
+  assert.equal(attempts, 2, 'Unclassified 429 must retry at most once (total 2 attempts)');
+  assert.equal(budget.isBlocked(), false, 'Unclassified 429 must NOT mark the day exhausted or block future calls');
+
+  if (fs.existsSync(testBudgetFile)) fs.unlinkSync(testBudgetFile);
+});
+
+test('ERROR REDACTION: saveRedactedErrorBody sanitizes API keys and tokens', () => {
+  const tempErrorFile = '.test_redacted_error.json';
+  if (fs.existsSync(tempErrorFile)) fs.unlinkSync(tempErrorFile);
+
+  const sensitivePayload = {
+    error: {
+      message:
+        'Invalid request to endpoint https://generativelanguage.googleapis.com/v1beta/models/gemini?key=AIzaSySecretFakeApiKey12345678901234',
+      bearer: 'Bearer ya29.a0ARrdaM_SecretToken123',
+    },
+  };
+
+  saveRedactedErrorBody(sensitivePayload, tempErrorFile);
+  assert.ok(fs.existsSync(tempErrorFile), 'Redacted error file must exist');
+
+  const content = fs.readFileSync(tempErrorFile, 'utf8');
+  assert.ok(
+    !content.includes('AIzaSySecretFakeApiKey12345678901234'),
+    'Must sanitize AIzaSy API key'
+  );
+  assert.ok(!content.includes('ya29.a0ARrdaM_SecretToken123'), 'Must sanitize Bearer token');
+  assert.ok(content.includes('[REDACTED_API_KEY]'), 'Must replace sensitive key with placeholder');
+  assert.ok(content.includes('[REDACTED_TOKEN]'), 'Must replace bearer token with placeholder');
+
+  if (fs.existsSync(tempErrorFile)) fs.unlinkSync(tempErrorFile);
+});
+
+test('PACIFIC DATE KEYING & RESET TIME IN CASABLANCA: Verifies midnight alignment in America/Los_Angeles and conversion to Africa/Casablanca', () => {
+  const pacificDate = getPacificDateString();
+  assert.match(pacificDate, /^\d{4}-\d{2}-\d{2}$/, 'Pacific date must follow YYYY-MM-DD');
+
+  const nextMidnight = getNextPacificMidnight();
+  assert.ok(nextMidnight instanceof Date, 'getNextPacificMidnight must return a Date');
+  assert.ok(nextMidnight.getTime() > Date.now(), 'Next Pacific midnight must be in the future');
+
+  const casablancaReset = formatInTimezone(nextMidnight, 'Africa/Casablanca');
+  const pacificReset = formatInTimezone(nextMidnight, 'America/Los_Angeles');
+
+  assert.ok(casablancaReset.length > 0);
+  assert.ok(pacificReset.length > 0);
+  // Pacific midnight must be 12:00 AM (00:00)
+  assert.ok(pacificReset.includes('12:00:00 AM') || pacificReset.includes('00:00:00'), `Pacific reset time should be midnight: ${pacificReset}`);
+});
+
+test('GUARD LIVE CALLS BEHIND --allow-live: Refuses live calls without explicit flag', async () => {
+  const cache = new ResponseCache('.eval_cache_guard_test');
+  const limiter = new RateLimiter({ maxCalls: 10, minPacingMs: 0 });
+
+  // Client without allowLive
+  const guardedClient = new EvalModelClient({
+    provider: 'gemini',
+    model: 'gemini-3.8-flash',
+    cache,
+    limiter,
+    allowLive: false,
+  });
+
+  await assert.rejects(
+    async () => {
+      await guardedClient.complete({
+        systemPrompt: '',
+        prompt: 'test',
+        runIndex: 0,
+      });
+    },
+    /Live Gemini API calls are blocked unless --allow-live is explicitly passed/,
+    'Must refuse live complete without --allow-live'
+  );
+
+  await assert.rejects(
+    async () => {
+      await guardedClient.executeSmokeCall();
+    },
+    /Must pass --allow-live to run live smoke test/,
+    'Must refuse live smoke call without --allow-live'
+  );
 });
 
 test('DAILY STATUS COMPUTE: Accurately calculates progress and determines active stage', () => {
@@ -243,6 +517,9 @@ test('DAILY STATUS COMPUTE: Accurately calculates progress and determines active
   assert.equal(statusInitial.stageCompletedItems, 0);
   assert.equal(statusInitial.stageRemainingItems, 45);
   assert.equal(statusInitial.allDone, false);
+  assert.ok(statusInitial.datePacific.length > 0);
+  assert.ok(statusInitial.timeCasablanca.length > 0);
+  assert.ok(statusInitial.nextResetCasablanca.length > 0);
 
   if (fs.existsSync(testCheckpointFile)) fs.unlinkSync(testCheckpointFile);
   if (fs.existsSync(testBudgetFile)) fs.unlinkSync(testBudgetFile);

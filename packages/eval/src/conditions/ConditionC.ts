@@ -1,7 +1,7 @@
 import { ASTVerifier, Sandbox } from '@aether-flow/core';
 import { AgentVisibleTask, TaskRunResult, TokenUsage, ErrorTaxonomy } from '../types.js';
-import { EvalModelClient } from '../providers/EvalModelClient.js';
-import { isHarnessStopError, isProviderError } from '../utils/errors.js';
+import { EvalModelClient, ProviderError } from '../providers/EvalModelClient.js';
+import { isHarnessStopError } from '../utils/errors.js';
 
 function extractCodeFromResponse(text: string): string {
   const codeBlockMatch = text.match(/```(?:javascript|js|typescript|ts)?\s*([\s\S]*?)\s*```/i);
@@ -122,7 +122,7 @@ Wrap your code in \`\`\`javascript ... \`\`\`.`;
       throw err;
     }
     const latencyMs = performance.now() - startTime;
-    const isProv = isProviderError(err);
+    const isProv = err instanceof ProviderError;
     return {
       taskId: task.id,
       familyId: task.familyId,
