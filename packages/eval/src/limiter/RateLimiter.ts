@@ -10,10 +10,12 @@ import {
   BudgetExceededError,
   StructuredQuotaAnalysis,
 } from '../utils/errors.js';
+import { DEFAULT_EVAL_MODEL, getModelProfile } from '../config/models.js';
 
 export { DailyBudgetExceededError, DailyQuotaExhaustedError, BudgetExceededError };
 
 export interface RateLimiterOptions {
+  model?: string;
   rpm?: number;
   tpm?: number;
   rpd?: number;
@@ -24,6 +26,7 @@ export interface RateLimiterOptions {
 }
 
 export class RateLimiter {
+  public readonly model: string;
   public readonly rpm: number;
   public readonly tpm: number;
   public readonly rpd: number;
@@ -35,15 +38,22 @@ export class RateLimiter {
   private savedFirstError = false;
 
   constructor(options?: RateLimiterOptions) {
-    this.rpm = options?.rpm ?? 5;
-    this.tpm = options?.tpm ?? 250000;
-    this.rpd = options?.rpd ?? 20;
-    this.maxCalls = options?.maxCalls ?? 50;
-    this.minPacingMs = options?.minPacingMs ?? 13000; // at least 13 seconds between requests
+    this.model = options?.model ?? DEFAULT_EVAL_MODEL;
+    const profile = getModelProfile(this.model);
+
+    this.rpm = options?.rpm ?? profile.rpm;
+    this.tpm = options?.tpm ?? profile.tpm;
+    this.rpd = options?.rpd ?? profile.rpd;
+    this.maxCalls = options?.maxCalls ?? 600;
+    this.minPacingMs = options?.minPacingMs ?? profile.minPacingMs;
 
     this.dailyBudget =
       options?.dailyBudgetManager ??
-      new DailyBudgetManager('.eval_daily_budget.json', options?.dailyBudget ?? 18);
+      new DailyBudgetManager(
+        '.eval_daily_budget.json',
+        options?.dailyBudget ?? profile.defaultDailyBudget,
+        this.model
+      );
   }
 
   public async acquire(): Promise<void> {
@@ -54,10 +64,10 @@ export class RateLimiter {
       );
     }
 
-    // 2. Check persistent daily budget & blocked state (Pacific date boundary)
+    // 2. Check persistent daily budget & blocked state (Pacific date boundary) for this model
     this.dailyBudget.checkBudgetOrThrow();
 
-    // 3. Pacing: pace at least minPacingMs (>= 13s) and 60000 / rpm
+    // 3. Pacing: pace at least minPacingMs (~4.5s for 3.5 Flash Lite) and 60000 / rpm
     const intervalFromRpm = Math.ceil(60000 / this.rpm);
     const minIntervalMs = Math.max(this.minPacingMs, intervalFromRpm);
     const now = Date.now();
@@ -104,7 +114,7 @@ export class RateLimiter {
             this.dailyBudget.setBlockedUntil(nextMidnight);
             const reset = this.dailyBudget.getNextResetDisplay('Africa/Casablanca');
             throw new DailyQuotaExhaustedError(
-              `[DAILY QUOTA EXHAUSTED] Provider returned structured per-day quota exhaustion (${quotaAnalysis.reason}). Blocked until next Pacific midnight (${reset.casablanca} Casablanca time / ${reset.pacific} Pacific). Stopping immediately without retries.`,
+              `[DAILY QUOTA EXHAUSTED: ${this.model}] Provider returned structured per-day quota exhaustion (${quotaAnalysis.reason}). Blocked until next Pacific midnight (${reset.casablanca} Casablanca time / ${reset.pacific} Pacific). Stopping immediately without retries.`,
               { resetTimeCasablanca: reset.casablanca, blockedUntil: nextMidnight.toISOString() }
             );
           }
@@ -114,11 +124,11 @@ export class RateLimiter {
             const maxRetries = 2;
             if (attempt < maxRetries) {
               attempt++;
-              const baseDelay = quotaAnalysis.retryDelayMs ?? Math.max(13000, Math.pow(2, attempt) * 10000);
-              const jitter = Math.floor(Math.random() * 2000);
+              const baseDelay = quotaAnalysis.retryDelayMs ?? Math.max(this.minPacingMs, Math.pow(2, attempt) * 5000);
+              const jitter = Math.floor(Math.random() * 1500);
               const backoffMs = baseDelay + jitter;
               console.warn(
-                `[API RETRY (PER-MINUTE 429)] Backing off for ${(backoffMs / 1000).toFixed(1)}s (Attempt ${attempt}/${maxRetries}). Every retry counts against daily budget...`
+                `[API RETRY (PER-MINUTE 429: ${this.model})] Backing off for ${(backoffMs / 1000).toFixed(1)}s (Attempt ${attempt}/${maxRetries}). Every retry counts against daily budget...`
               );
               await new Promise((resolve) => setTimeout(resolve, backoffMs));
               continue;
@@ -130,9 +140,9 @@ export class RateLimiter {
           const maxUnclassifiedRetries = 1;
           if (attempt < maxUnclassifiedRetries) {
             attempt++;
-            const backoffMs = quotaAnalysis.retryDelayMs ?? 15000;
+            const backoffMs = quotaAnalysis.retryDelayMs ?? Math.max(10000, this.minPacingMs * 2);
             console.warn(
-              `[API RETRY (UNCLASSIFIED 429)] Cannot classify quota metric. Retrying at most once after ${(backoffMs / 1000).toFixed(1)}s (Attempt ${attempt}/1)...`
+              `[API RETRY (UNCLASSIFIED 429: ${this.model})] Cannot classify quota metric. Retrying at most once after ${(backoffMs / 1000).toFixed(1)}s (Attempt ${attempt}/1)...`
             );
             await new Promise((resolve) => setTimeout(resolve, backoffMs));
             continue;
@@ -146,9 +156,9 @@ export class RateLimiter {
 
         if (isTransient503 && attempt < 2) {
           attempt++;
-          const backoffMs = Math.max(13000, Math.pow(2, attempt) * 10000);
+          const backoffMs = Math.max(this.minPacingMs, Math.pow(2, attempt) * 5000);
           console.warn(
-            `[API RETRY (503/NETWORK)] Backing off for ${(backoffMs / 1000).toFixed(1)}s (Attempt ${attempt}/2). Every retry counts against daily budget...`
+            `[API RETRY (503/NETWORK: ${this.model})] Backing off for ${(backoffMs / 1000).toFixed(1)}s (Attempt ${attempt}/2). Every retry counts against daily budget...`
           );
           await new Promise((resolve) => setTimeout(resolve, backoffMs));
           continue;

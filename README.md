@@ -248,6 +248,40 @@ In v0.1, the core architecture is **strictly frozen** to the verified sandbox an
 
 ---
 
+## 🔬 Empirical Evaluation & Benchmarking
+
+AetherFlow provides an empirical evaluation harness (`@aether-flow/eval`) comparing static generation, fixed tool palettes, one-shot code execution, iterative synthesis with sandbox feedback, and dynamic skill reuse across 15 benchmark tasks in 5 algorithmic domains.
+
+### Methodology & Model Configuration
+- **Evaluated Model:** Google's lightweight model **Gemini 3.5 Flash-Lite** (`gemini-3.5-flash-lite`, stable GA release).
+- **Free-Tier Limits & Pacing:** Configured for 15 RPM, 250K TPM, and 500 RPD, paced at **~4.5 seconds** between requests. Daily budget default is 450 calls.
+- **Main Benchmark Protocol:** Runs all 5 conditions (A: Direct, B: Fixed Palette, C0: One-shot synthesis, C: Sandbox feedback loop, D: Dynamic skill reuse) with $N=3$ independent repetitions per task (225 total runs).
+- **Estimates:** 195 min / 312 typical / 585 max API calls, completing in **1 to 2 days** on free tier.
+- **Quota & Isolation Guarantee:** Quotas and budgets are tracked per-model (America/Los_Angeles calendar boundary, with reset display in Africa/Casablanca time). Results across different models are strictly segregated into separate files (`eval_results_<model>.json`) and never pooled.
+
+### Scope of Claims & Honest Limitations
+> [!NOTE]
+> **Scientific Framing of Results**:
+> The evaluation benchmarks a lightweight model family (`gemini-3.5-flash-lite`). Findings are **suggestive, not universal**:
+> 1. They validate that sandbox execution feedback (Condition C) and dynamic tool reuse (Condition D) concretely improve problem-solving accuracy and token efficiency on algorithmic tasks for lightweight models.
+> 2. They do **not** claim universal superiority over frontier 1T+ parameter reasoning models on arbitrary real-world software engineering repositories without dedicated cross-family benchmarks.
+
+### Execution Commands
+```bash
+# Offline dry-run with mock provider (0 API calls)
+npm run eval:mock
+
+# Daily staged execution runner (resumable, persists progress to checkpoint)
+npm run eval:daily
+
+# One-call live verification of model connectivity and response shape
+npm run eval:smoke
+```
+
+See [`EVAL_DESIGN.md`](EVAL_DESIGN.md) for full architectural specifications, mathematical definitions, and hypotheses.
+
+---
+
 ## 📄 License
 
 Distributed under the **Apache-2.0 License**. See [LICENSE](LICENSE) for details.

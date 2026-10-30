@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { Sandbox, ASTVerifier } from '@aether-flow/core';
 import {
   BenchmarkTask,
@@ -25,6 +27,7 @@ import { runConditionD, ToolLibrary } from '../conditions/ConditionD.js';
 import { estimateApiCalls } from './estimator.js';
 import { loadEnv } from '../utils/env.js';
 import { isHarnessStopError, DailyBudgetExceededError, DailyQuotaExhaustedError } from '../utils/errors.js';
+import { DEFAULT_EVAL_MODEL, getModelProfile } from '../config/models.js';
 
 export function computeWilsonScoreCI(successes: number, total: number, z = 1.96): [number, number] {
   if (total === 0) return [0, 0];
@@ -58,16 +61,19 @@ export class EvalHarness {
       else if (options.stage === 2) conditions = ['B', 'D'];
     }
 
+    const model = options.model ?? DEFAULT_EVAL_MODEL;
+    const profile = getModelProfile(model);
+
     this.options = {
-      provider: options.provider ?? 'mock',
-      model: options.model ?? 'gemini-3.8-flash',
-      rpm: options.rpm ?? 5,
-      tpm: options.tpm ?? 250000,
-      rpd: options.rpd ?? 20,
-      dailyBudget: options.dailyBudget ?? 18,
-      maxCalls: options.maxCalls ?? 50,
-      runs: options.runs ?? 1,
-      thinkingLevel: options.thinkingLevel ?? 'medium',
+      provider: options.provider ?? (isMock ? 'mock' : profile.provider),
+      model,
+      rpm: options.rpm ?? profile.rpm,
+      tpm: options.tpm ?? profile.tpm,
+      rpd: options.rpd ?? profile.rpd,
+      dailyBudget: options.dailyBudget ?? profile.defaultDailyBudget,
+      maxCalls: options.maxCalls ?? 600,
+      runs: options.runs ?? (model === 'gemini-3.8-flash' ? 1 : 3),
+      thinkingLevel: options.thinkingLevel ?? profile.defaultThinkingLevel,
       limitTasks: options.limitTasks,
       taskIds: options.taskIds,
       conditions,
@@ -81,12 +87,13 @@ export class EvalHarness {
 
     this.cache = new ResponseCache(this.options.cacheDir);
     this.limiter = new RateLimiter({
+      model: this.options.model,
       rpm: this.options.rpm,
       tpm: this.options.tpm,
       rpd: this.options.rpd,
       dailyBudget: this.options.dailyBudget,
       maxCalls: this.options.maxCalls,
-      minPacingMs: 13000,
+      minPacingMs: profile.minPacingMs,
     });
     this.checkpoint = new CheckpointManager(this.options.checkpointFile);
     this.client = new EvalModelClient({
@@ -142,6 +149,11 @@ export class EvalHarness {
   }
 
   public async run(): Promise<{ summary: EvalSummary; results: TaskRunResult[] }> {
+    if (this.options.provider === 'gemini' && !this.options.allowLive) {
+      throw new Error(
+        'SAFETY / QUOTA GUARD: Live Gemini API calls are blocked unless --allow-live is explicitly passed. (Using the key also consumes quota in Google AI Studio playground and Antigravity). Use MockProvider (--dry-run) for offline tests, or pass --allow-live to run live.'
+      );
+    }
     this.validateSecurityPrerequisites();
     const tasks = this.getSelectedTasks();
     const results: TaskRunResult[] = [];
@@ -275,6 +287,27 @@ export class EvalHarness {
     }
 
     const summary = this.computeSummary(results, tasks.length, stoppedEarly, stopReason);
+
+    // Save strictly isolated results file per model
+    const sanitizedModel = this.options.model.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const resultsFile = `eval_results_${sanitizedModel}.json`;
+    try {
+      const outputPayload = {
+        model: this.options.model,
+        thinkingSetting: this.client.supportsThinking ? this.options.thinkingLevel : 'none (unsupported)',
+        evaluationDate: summary.methodology.evaluationDate,
+        runsPerTask: this.options.runs,
+        totalTasks: tasks.length,
+        status: summary.status,
+        incompleteReason: summary.incompleteReason,
+        isolationNotice: `STRICT MODEL ISOLATION: Results obtained exclusively for [${this.options.model}] and must NEVER be pooled, combined, or merged with results from other models.`,
+        summary,
+        results,
+      };
+      fs.writeFileSync(path.resolve(process.cwd(), resultsFile), JSON.stringify(outputPayload, null, 2), 'utf8');
+    } catch {
+      // Non-fatal
+    }
 
     if (isMock) {
       console.log('\n================================================================');

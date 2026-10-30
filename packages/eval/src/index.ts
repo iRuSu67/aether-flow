@@ -7,11 +7,19 @@ import { RateLimiter } from './limiter/RateLimiter.js';
 import { EvalOptions } from './types.js';
 import { loadEnv } from './utils/env.js';
 import { runDailyEval } from './harness/dailyRunner.js';
+import { DEFAULT_EVAL_MODEL, getModelProfile, MODEL_PROFILES } from './config/models.js';
 
 export { EvalHarness } from './harness/EvalHarness.js';
 export { ToolLibrary } from './conditions/ToolLibrary.js';
-export { estimateApiCalls, estimateStagedEvaluation } from './harness/estimator.js';
+export {
+  estimateApiCalls,
+  estimateStagedEvaluation,
+  estimateMainRun,
+  estimateSpotCheck38,
+  estimateGemmaRun,
+} from './harness/estimator.js';
 export { runDailyEval, computeDailyStatus } from './harness/dailyRunner.js';
+export { DEFAULT_EVAL_MODEL, getModelProfile, MODEL_PROFILES } from './config/models.js';
 export * from './types.js';
 
 async function main() {
@@ -66,19 +74,22 @@ async function main() {
   }
 
   if (isSmoke) {
+    const model = options.model ?? DEFAULT_EVAL_MODEL;
+    const profile = getModelProfile(model);
     const cache = new ResponseCache(options.cacheDir ?? '.eval_cache');
     const limiter = new RateLimiter({
-      rpm: options.rpm ?? 5,
-      tpm: options.tpm ?? 250000,
-      rpd: options.rpd ?? 20,
-      dailyBudget: options.dailyBudget ?? 18,
+      model,
+      rpm: options.rpm ?? profile.rpm,
+      tpm: options.tpm ?? profile.tpm,
+      rpd: options.rpd ?? profile.rpd,
+      dailyBudget: options.dailyBudget ?? profile.defaultDailyBudget,
       maxCalls: 1,
-      minPacingMs: 13000,
+      minPacingMs: profile.minPacingMs,
     });
     const client = new EvalModelClient({
       provider: options.provider ?? 'gemini',
-      model: options.model ?? 'gemini-3.8-flash',
-      thinkingLevel: options.thinkingLevel ?? 'medium',
+      model,
+      thinkingLevel: options.thinkingLevel ?? profile.defaultThinkingLevel,
       allowLive: options.allowLive ?? false,
       cache,
       limiter,
@@ -86,8 +97,8 @@ async function main() {
     console.log('================================================================');
     console.log('                 EVAL SMOKE TEST (1 LIVE CALL)                  ');
     console.log('================================================================');
-    console.log(`Model:          ${options.model ?? 'gemini-3.8-flash'}`);
-    console.log(`Thinking Level: ${options.thinkingLevel ?? 'medium'}`);
+    console.log(`Model:          ${model} (${profile.description})`);
+    console.log(`Thinking Level: ${options.thinkingLevel ?? profile.defaultThinkingLevel}`);
     console.log(`Allow Live:     ${options.allowLive ? 'YES' : 'NO'}`);
     console.log('Executing single smoke call ("Respond with OK")...\n');
     const result = await client.executeSmokeCall();
@@ -115,14 +126,17 @@ async function main() {
   const harness = new EvalHarness(options);
   const { summary } = await harness.run();
 
+  const conds = harness.getEffectiveConditions();
   console.log('\n================================================================');
   console.log('             EVALUATION REPORT (PER-CONDITION RESULTS)          ');
   console.log('================================================================');
   console.log(`Status: ${summary.status}${summary.incompleteReason ? ` (${summary.incompleteReason})` : ''}`);
-  console.log(`Methodology:`);
-  console.log(`  Model: ${summary.methodology.model} | Thinking Level: ${summary.methodology.thinkingLevel}`);
-  console.log(`  Runs Per Task: ${summary.methodology.runsPerTask} | Tasks Evaluated: ${summary.methodology.totalTasks}`);
+  console.log(`Methodology (STRICTLY ISOLATED TO THIS MODEL):`);
+  console.log(`  Model: ${summary.methodology.model} | Thinking Setting: ${summary.methodology.thinkingLevel}`);
+  console.log(`  Evaluation Date (Pacific): ${summary.methodology.evaluationDate} | Runs Per Task (N): ${summary.methodology.runsPerTask}`);
+  console.log(`  Tasks Evaluated: ${summary.methodology.totalTasks} | Conditions: ${conds.join(', ')}`);
   console.log(`  API Calls Made: ${summary.apiCallsMade} | Persistent Cache Hits: ${summary.cacheHits}`);
+  console.log(`  NOTE: Results from different models must NEVER be merged or pooled.`);
   if (summary.dailyBudget) {
     console.log(
       `  Daily Budget: ${summary.dailyBudget.callsToday}/${summary.dailyBudget.maxDailyBudget} calls used (${summary.dailyBudget.remaining} remaining today)`
@@ -132,7 +146,6 @@ async function main() {
   console.log('\n----------------------------------------------------------------');
   console.log('CONDITION PERFORMANCE (STRICTLY UNPOOLED):');
   console.log('----------------------------------------------------------------');
-  const conds = harness.getEffectiveConditions();
   for (const c of conds) {
     const s = summary.conditionStats[c];
     if (!s || s.total === 0) continue;

@@ -245,64 +245,88 @@ Every API turn captures:
 
 ## 8. Staged Evaluation Plan, Quotas & Rate Limits
 
-### Free-Tier Quota Reality & Configurable Limits
-Free-tier API keys for reasoning models (e.g. Gemini 3.8 Flash / Gemini 3.6 Flash) operate under strict constraints verified in Google AI Studio:
-- **RPM:** `5` requests per minute.
-- **Pacing:** Minimum `13` seconds between requests enforced by the rate limiter (`Math.max(13000, 60000 / rpm)`).
-- **TPM:** `250,000` tokens per minute.
-- **RPD:** `20` requests per day hard cap.
-- **Quota Pool Sharing Warning:** Using the same API key in Google AI Studio web playground or inside Antigravity/assistant sessions directly consumes from this same 20 RPD free-tier quota pool.
-- **Live Calls Protection (`--allow-live`):** All live API calls require the explicit `--allow-live` CLI flag. Obsolete scratch scripts that could trigger unbounded or unmetered API calls have been eliminated.
-- **Model Drift & Legacy Aliases:** Gemini 3.6 Flash usage seen on dashboards originated from Google aliasing `gemini-flash-latest` to Gemini 3.6 Flash in early scratch scripts. The evaluation harness pins the exact model identifier `gemini-3.8-flash` exclusively.
-- **Daily Budget (`--daily-budget`):** Default `18` calls per day (leaving a safety margin of 2 calls).
-- **Day Boundary Keying:** Daily budgets are strictly keyed to the calendar date in `America/Los_Angeles` (`YYYY-MM-DD`), matching Google AI Studio's Pacific midnight reset boundary.
-  - Pacific midnight corresponds to **08:00 AM Africa/Casablanca time** (during Pacific Daylight Time / 09:00 AM during PST).
-- **Quota Error Handling & Structured Analysis:**
-  - Errors are parsed via structured JSON error details (`error.details[]` checking `ErrorInfo.metadata.quota_metric` and `QuotaFailure` violations).
-  - Daily quota 429 (`DailyQuotaExhaustedError`): **NEVER retried**. The harness persists `blockedUntil` (next Pacific midnight) in `.eval_daily_budget.json` and cleanly refuses all calls before that reset time, displaying the reset time in Africa/Casablanca time.
-  - Transient per-minute 429s (`quota_metric: ...per_minute`): Retried up to 2 times using `RetryInfo.retryDelay` exponential backoff. Every retry counts against the daily budget.
-  - Unclassified 429s (cannot be definitively classified): Retried at most once after `retryDelay`, then halts without blocking the entire day.
-  - On the first real provider error, the full redacted error body (never containing the API key) is saved to `eval_last_provider_error.json` for transparent schema inspection.
-  - Sandbox, runtime, checker, or model-generated code errors containing substrings like "500", "network", "abort", "quota", or "429" are scored as normal task failures (`RUNTIME_ERROR` or `WRONG_OUTPUT`) and are **never** treated as provider errors or excluded from pass rates.
+### Free-Tier Model Profiles & Configurable Limits
+The evaluation harness supports configurable, per-model rate limits, token quotas, and pacing intervals. By default, the benchmark targets Google's lightweight, high-throughput model: **Gemini 3.5 Flash-Lite** (`gemini-3.5-flash-lite`).
 
-### Staged Evaluation Architecture
+#### Verified Model Specifications (Official Google Documentation)
+*Official Documentation: [Google AI for Developers - Models](https://ai.google.dev/gemini-api/docs/models#gemini-3.5-flash-lite)*
 
-To operate within free-tier limits without compromising experimental rigor, evaluation is organized into sequential stages:
+| Model Identifier | Release Status | Input / Output Limit | RPM | TPM | RPD | Daily Budget | Min Pacing | Thinking Support | Default Role |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
+| **`gemini-3.5-flash-lite`** | **Stable (GA)** | 1,048,576 / 65,536 | **15** | **250,000** | **500** | **450** | **~4.5s** | Yes (`minimal` - `high`) | **Main Benchmark Run (Default)** |
+| `gemini-3.1-flash-lite` | Stable (GA) | 1,048,576 / 65,536 | 15 | 250,000 | 500 | 450 | ~4.5s | Yes (`minimal` - `high`) | Fallback Lightweight Model |
+| `gemini-3.8-flash` | Stable (GA) | 1,048,576 / 65,536 | 5 | 250,000 | 20 | 18 | 13.0s | Yes (`medium`) | Optional Reasoning Spot-Check |
+| `gemma-4-26b` / `31b` | Stable (GA) | 131,072 / 8,192 | 30 | 16,000 | 14,400 | 10,000 | 7.5s (TPM-paced) | No (`thinkingConfig` omitted) | Optional Open-Weight Run |
+
+#### Pacing & Thinking Configuration Details
+1. **Lightweight Default (`gemini-3.5-flash-lite`):**
+   - **Throughput & Limits:** 15 RPM, 250K TPM, and 500 requests/day.
+   - **Pacing:** Paced at a minimum interval of **~4.5 seconds** between requests (`Math.max(4500, Math.ceil(60000 / rpm))`), avoiding burst-induced 429s.
+   - **Thinking Support:** Natively supports internal reasoning via `thinking_config` (`thinking_level: 'minimal' | 'low' | 'medium' | 'high'`). When deploying on multi-step coding/synthesis tasks, `medium` is configured to prevent premature tool termination.
+2. **Gemma 4 TPM-Aware Pacing:**
+   - Gemma models operate with a strict **16,000 TPM** limit. To avoid token exhaustion on multi-turn code synthesis (which typically consumes 1,500–2,000 tokens per interaction), requests are paced at **$\ge 7.5$ seconds** ($\le 8$ requests/min).
+   - **Thinking Omission:** Gemma models do not support `thinking_level`. The harness inspects `profile.supportsThinking` and strictly omits `thinkingConfig` from API request payloads.
+3. **Per-Model Daily Quota Isolation:**
+   - The daily budget tracker (`.eval_daily_budget.json`) is keyed by **model identifier** and **Pacific calendar date** (`YYYY-MM-DD`).
+   - If `gemini-3.8-flash` exhausts its 20 RPD daily quota, its `blockedUntil` state applies strictly to `gemini-3.8-flash`; `gemini-3.5-flash-lite` continues unaffected on its independent 500 RPD pool.
+   - Reset times are calculated relative to Pacific midnight and displayed in local Casablanca time (**08:00 AM GMT+1** during PDT).
+
+### Evaluation Architecture & Staging
+
+With the 500 RPD quota of `gemini-3.5-flash-lite`, the entire multi-condition evaluation can be executed with statistical rigor ($N=3$) in **1 to 2 days**:
 
 ```mermaid
 flowchart TD
-    S1["Stage 1: Core Synthesis and Sandboxing<br/>Conditions: A, C0, C | Tasks: 15 | N=1<br/>Calls: 45-90 (Typ: 60) | Duration: ~3-5 Days"]
-    S2["Stage 2: Fixed Palette and Skill Reuse<br/>Conditions: B, D | Tasks: 15 | N=1<br/>Calls: 20-105 (Typ: 44) | Duration: ~2-6 Days"]
-    S3["Stage 3: Multi-Run Confidence Intervals<br/>Conditions: A, B, C0, C, D | Tasks: 15 | N=3<br/>Calls: 195-585 | Local Ollama (local/ollama:*)"]
+    Main["Main Benchmark Evaluation (gemini-3.5-flash-lite)<br/>Conditions: A, B, C0, C, D | Tasks: 15 | N=3 (225 runs)<br/>Calls: 195-585 (Typ: 312) | Duration: 1-2 Days (Budget: 450/day)"]
+    Spot["Optional Reasoning Spot-Check (gemini-3.8-flash)<br/>1 Family (3 Tasks) | Conditions: A, B, C0, C, D | N=1<br/>Calls: 13-39 (Typ: 21) | Budget: 18/day | Separate Quota Block"]
+    Gemma["Optional Open-Weight Run (gemma-4-26b)<br/>Conditions: A, B, C0, C, D | Tasks: 15 | N=3<br/>Calls: 195-585 | Pacing: >= 7.5s (TPM-Aware) | Budget: 10,000/day"]
 
-    S1 -->|Validates Hypotheses 1 and 2| S2
-    S2 -->|Validates Hypotheses 3 and 4| S3
+    Main -.->|Cross-Model Comparison (Strictly Segregated)| Spot
+    Main -.->|Cross-Architecture Comparison (Strictly Segregated)| Gemma
 ```
 
-#### Stage Breakdown & Call Budget Table
+#### Detailed Call Budget Breakdown
 
-| Stage | Conditions | Focus / Research Question | Tasks | Runs ($N$) | Min Calls | Typ Calls | Max Calls | Daily Budget | Est. Days |
-| :--- | :---: | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Stage 1** | **A, C0, C** | Does code execution help (A vs C0)? Does retry loop help (C0 vs C)? | 15 | 1 | **45** | **60** | **90** | 18 calls/day | **3-5 days** |
-| **Stage 2** | **B, D** | Does dynamic synthesis beat fixed tools (C vs B)? Does reuse save tokens (D vs C)? | 15 | 1 | **20** | **44** | **105** | 18 calls/day | **2-6 days** |
-| **Stage 3** | **A, B, C0, C, D** | Variance reduction & tight Wilson CIs via local model (Ollama) or billing | 15 | 3 | **195** | **312** | **585** | Unmetered (0 API cost) | **< 1 day** |
+| Plan / Model | Conditions | Tasks | Runs ($N$) | Min Calls | Typ Calls | Max Calls | Daily Budget | Est. Duration | Pacing Interval |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Main Run (`gemini-3.5-flash-lite`)** | **A, B, C0, C, D** | **15** | **3** | **195** | **312** | **585** | **450 calls/day** | **1–2 days** | **~4.5s** |
+| **Spot-Check (`gemini-3.8-flash`)** | A, B, C0, C, D | 3 | 1 | 13 | 21 | 39 | 18 calls/day | 1–2 days | 13.0s |
+| **Staged 3.8 (`gemini-3.8-flash`)** | Stage 1 (A, C0, C) | 15 | 1 | 45 | 60 | 90 | 18 calls/day | 3–5 days | 13.0s |
+| **Open-Weight (`gemma-4-26b`)** | A, B, C0, C, D | 15 | 3 | 195 | 312 | 585 | 10,000 calls/day | < 1 day | $\ge 7.5$s (TPM-paced) |
 
 > [!IMPORTANT]
-> **Strict Model Segregation:** Stage 3 results obtained via local Ollama models are strictly tagged and reported under the separate model identifier `local/ollama:<model-name>`. Local model results are **NEVER** merged, pooled, or combined with Gemini results.
+> **Strict Model Segregation Policy:**
+> Every results file (`eval_results_<model>.json`) and table explicitly logs:
+> 1. Exact model code (`model`)
+> 2. Thinking setting (`thinkingSetting`)
+> 3. Evaluation date in Pacific Time (`evaluationDate`)
+> 4. Number of runs per task ($N$)
+> 
+> Results from different models (e.g. `gemini-3.5-flash-lite`, `gemini-3.8-flash`, `gemma-4-26b`, `local/ollama:*`) are stored in separate files and must **NEVER** be merged, averaged, or pooled into a combined score.
+
+### Scientific Framing & Scope of Claims
+
+To preserve academic integrity and honest reporting:
+1. **Lightweight Model Basis:** The benchmark evaluates a lightweight free-tier model (`gemini-3.5-flash-lite`). While capable of fast code generation, smaller models exhibit higher variance and different error modes than 1T+ parameter frontier models.
+2. **Suggestive Findings:** The results demonstrate the concrete engineering validity of the verified sandbox, the AST containment layer, and the dynamic skill library on 15 algorithmic benchmark tasks across 5 domains.
+3. **Implications for Project Claims:**
+   - The evaluation proves that on-the-fly tool synthesis with sandbox execution feedback outperforms static direct code generation for this model family.
+   - It proves that runtime skill reuse (Condition D) saves model calls and latency when solving similar variants within a task family.
+   - It **does not claim** universal generalizability across all programming tasks, unconstrained real-world software engineering repositories, or disparate model architectures without multi-family empirical evidence.
 
 ### Automation Commands
 
 - **Daily Automation (`npm run eval:daily`):**
-  1. Inspects `.eval_daily_budget.json` (Pacific date-keyed) and `eval_checkpoint.json`.
-  2. Prints Pacific date, Africa/Casablanca local time, calls used today, remaining budget, and next quota reset time.
-  3. Automatically targets the current active stage (Stage 1 first, then Stage 2).
-  4. Respects `--daily-budget=18` and 13-second request pacing.
-  5. Checkpoints after each task and cleanly exits with a friendly message when the daily budget is reached.
+  1. Inspects `.eval_daily_budget.json` (per-model record keyed to Pacific date) and `eval_checkpoint.json`.
+  2. Targets the active model (default: `gemini-3.5-flash-lite`, or `--model=gemini-3.8-flash`).
+  3. Enforces 450 daily budget for 3.5 Flash Lite (or 18 for 3.8 Flash) and ~4.5s request pacing.
+  4. Automatically runs $N=3$ multi-condition tasks, checkpoints state after each task run, and cleanly exits when the daily budget is met.
+  5. Writes isolated results to `eval_results_gemini-3_5-flash-lite.json`.
 
 - **Smoke Test Command (`npm run eval:smoke`):**
-  - Executes exactly **ONE** live API call to `gemini-3.8-flash` with the prompt `"Respond with OK"`.
-  - Prints HTTP status, model, thinking level, token usage breakdown, and response text.
-  - Verifies response shape and network connectivity before launching full daily runs.
+  - Dispatches exactly **ONE** live API call to the default model (`gemini-3.5-flash-lite`, or specified via `--model=...`).
+  - Verifies HTTP status, model code, thinking configuration, prompt tokens, thinking tokens, output tokens, and response shape.
+  - Requires `--allow-live` to prevent accidental execution.
 
 ---
 

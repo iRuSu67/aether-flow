@@ -8,6 +8,7 @@ import {
   analyzeStructuredQuotaError,
   saveRedactedErrorBody,
 } from '../utils/errors.js';
+import { DEFAULT_EVAL_MODEL, getModelProfile } from '../config/models.js';
 
 export { ProviderError };
 
@@ -45,10 +46,12 @@ export class EvalModelClient {
   private limiter: RateLimiter;
   private openaiBaseUrl?: string;
   private allowLive: boolean;
+  public readonly supportsThinking: boolean;
+  public readonly maxOutputTokens: number;
 
   constructor(options: {
     provider: 'mock' | 'gemini' | 'ollama' | 'openai';
-    model: string;
+    model?: string;
     apiKey?: string;
     thinkingLevel?: 'low' | 'medium' | 'high';
     cache: ResponseCache;
@@ -58,9 +61,12 @@ export class EvalModelClient {
   }) {
     loadEnv();
     this.provider = options.provider;
-    this.model = options.model;
+    this.model = options.model ?? DEFAULT_EVAL_MODEL;
+    const profile = getModelProfile(this.model);
+    this.supportsThinking = profile.supportsThinking;
+    this.maxOutputTokens = profile.maxOutputTokens;
     this.apiKey = options.apiKey || process.env.GEMINI_API_KEY || '';
-    this.thinkingLevel = options.thinkingLevel ?? 'medium';
+    this.thinkingLevel = options.thinkingLevel ?? profile.defaultThinkingLevel;
     this.cache = options.cache;
     this.limiter = options.limiter;
     this.openaiBaseUrl = options.openaiBaseUrl || process.env.OPENAI_BASE_URL;
@@ -123,6 +129,16 @@ export class EvalModelClient {
       return await this.limiter.executeWithRetry(async () => {
         const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.apiKey}`;
 
+        const generationConfig: Record<string, unknown> = {
+          maxOutputTokens: Math.min(this.maxOutputTokens || 65536, 8192),
+        };
+
+        if (this.supportsThinking) {
+          generationConfig.thinkingConfig = {
+            thinkingLevel: this.thinkingLevel,
+          };
+        }
+
         const bodyPayload: Record<string, unknown> = {
           contents: [
             {
@@ -130,12 +146,7 @@ export class EvalModelClient {
               parts: [{ text: request.prompt }],
             },
           ],
-          generationConfig: {
-            maxOutputTokens: 4096,
-            thinkingConfig: {
-              thinkingLevel: this.thinkingLevel,
-            },
-          },
+          generationConfig,
         };
 
         if (request.systemPrompt) {
@@ -365,15 +376,20 @@ export class EvalModelClient {
     // Acquire rate limit slot and increment daily budget
     await this.limiter.acquire();
 
+    const generationConfig: Record<string, unknown> = {};
+    if (this.supportsThinking) {
+      generationConfig.thinkingConfig = {
+        thinkingLevel: this.thinkingLevel,
+      };
+    }
+
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.apiKey}`;
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ role: 'user', parts: [{ text: 'Respond with OK' }] }],
-        generationConfig: {
-          thinkingConfig: { thinkingLevel: this.thinkingLevel },
-        },
+        generationConfig,
       }),
     });
 
@@ -422,7 +438,7 @@ export class EvalModelClient {
       httpStatus: response.status,
       statusText: response.statusText,
       model: this.model,
-      thinkingLevel: this.thinkingLevel,
+      thinkingLevel: this.supportsThinking ? this.thinkingLevel : 'none (unsupported)',
       tokenUsage: { promptTokens, thinkingTokens, outputTokens, totalTokens },
       responseShape: {
         candidatesCount: data.candidates?.length || 0,

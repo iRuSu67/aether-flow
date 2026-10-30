@@ -4,10 +4,12 @@ import {
   DailyBudgetExceededError,
   DailyQuotaExhaustedError,
 } from '../utils/errors.js';
+import { DEFAULT_EVAL_MODEL, getModelProfile } from '../config/models.js';
 
 export { DailyBudgetExceededError, DailyQuotaExhaustedError };
 
 export interface DailyBudgetRecord {
+  model: string;
   datePacific: string;
   callsToday: number;
   maxDailyBudget: number;
@@ -83,45 +85,84 @@ export function formatInTimezone(date: Date, timeZone = 'Africa/Casablanca'): st
 export class DailyBudgetManager {
   private filePath: string;
   private maxDailyBudget: number;
+  public readonly model: string;
 
-  constructor(filePath = '.eval_daily_budget.json', maxDailyBudget = 18) {
+  constructor(
+    filePath = '.eval_daily_budget.json',
+    maxDailyBudget?: number,
+    model = DEFAULT_EVAL_MODEL
+  ) {
     this.filePath = path.resolve(process.cwd(), filePath);
-    this.maxDailyBudget = maxDailyBudget;
+    this.model = model;
+    const profile = getModelProfile(model);
+    this.maxDailyBudget = maxDailyBudget ?? profile.defaultDailyBudget;
   }
 
-  private readRecord(): DailyBudgetRecord {
-    const todayPacific = getPacificDateString();
+  private readAllRecords(): Record<string, DailyBudgetRecord> {
     if (fs.existsSync(this.filePath)) {
       try {
         const raw = fs.readFileSync(this.filePath, 'utf8');
-        const parsed = JSON.parse(raw) as DailyBudgetRecord;
-        if (parsed && parsed.datePacific === todayPacific) {
-          return parsed;
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          // Backward-compatibility: if legacy flat record with root callsToday
+          if ('callsToday' in parsed && 'datePacific' in parsed) {
+            const legacyModel = parsed.model || this.model;
+            return {
+              [legacyModel]: {
+                model: legacyModel,
+                datePacific: parsed.datePacific,
+                callsToday: parsed.callsToday,
+                maxDailyBudget: parsed.maxDailyBudget ?? this.maxDailyBudget,
+                blockedUntil: parsed.blockedUntil,
+                lastUpdated: parsed.lastUpdated || new Date().toISOString(),
+                note: parsed.note || '',
+              },
+            };
+          }
+          return parsed as Record<string, DailyBudgetRecord>;
         }
       } catch {
         // Fall through on corrupt read
       }
     }
+    return {};
+  }
 
-    // New Pacific day: reset call count
+  private writeAllRecords(records: Record<string, DailyBudgetRecord>): void {
+    try {
+      fs.writeFileSync(this.filePath, JSON.stringify(records, null, 2), 'utf8');
+    } catch (err) {
+      console.warn(`[DailyBudgetManager] Warning: failed to persist daily budget to ${this.filePath}`);
+    }
+  }
+
+  private readRecord(): DailyBudgetRecord {
+    const todayPacific = getPacificDateString();
+    const all = this.readAllRecords();
+    const existing = all[this.model];
+    if (existing && existing.datePacific === todayPacific) {
+      return existing;
+    }
+
+    // New Pacific day or new model record: reset calls for this model
     const initial: DailyBudgetRecord = {
+      model: this.model,
       datePacific: todayPacific,
       callsToday: 0,
       maxDailyBudget: this.maxDailyBudget,
       lastUpdated: new Date().toISOString(),
-      note: 'Keyed strictly to America/Los_Angeles calendar date (Google AI Studio reset boundary).',
+      note: `Keyed strictly to America/Los_Angeles calendar date for model [${this.model}].`,
     };
-    this.writeRecord(initial);
+    all[this.model] = initial;
+    this.writeAllRecords(all);
     return initial;
   }
 
   private writeRecord(record: DailyBudgetRecord): void {
-    try {
-      record.lastUpdated = new Date().toISOString();
-      fs.writeFileSync(this.filePath, JSON.stringify(record, null, 2), 'utf8');
-    } catch (err) {
-      console.warn(`[DailyBudgetManager] Warning: failed to persist daily budget to ${this.filePath}`);
-    }
+    const all = this.readAllRecords();
+    record.lastUpdated = new Date().toISOString();
+    all[this.model] = record;
+    this.writeAllRecords(all);
   }
 
   public getCallsToday(): number {
@@ -175,16 +216,16 @@ export class DailyBudgetManager {
   }
 
   /**
-   * Check if calls are blocked by daily budget exhaustion or previous daily quota limit.
+   * Check if calls are blocked by daily budget exhaustion or previous daily quota limit for this model.
    */
   public checkBudgetOrThrow(now = new Date()): void {
     const record = this.readRecord();
 
-    // 1. Check if blocked by a previous daily-quota 429
+    // 1. Check if blocked by a previous daily-quota 429 for this model
     if (this.isBlocked(now)) {
       const reset = this.getNextResetDisplay('Africa/Casablanca');
       throw new DailyQuotaExhaustedError(
-        `[DAILY QUOTA BLOCKED] Google API daily quota is exhausted. Blocked until next Pacific midnight (${reset.casablanca} Casablanca time / ${reset.pacific} Pacific). Refusing API calls until reset.`,
+        `[DAILY QUOTA BLOCKED: ${this.model}] Google API daily quota is exhausted for model ${this.model}. Blocked until next Pacific midnight (${reset.casablanca} Casablanca time / ${reset.pacific} Pacific). Refusing API calls for this model until reset.`,
         { resetTimeCasablanca: reset.casablanca, blockedUntil: record.blockedUntil }
       );
     }
@@ -193,13 +234,13 @@ export class DailyBudgetManager {
     if (record.callsToday >= this.maxDailyBudget) {
       const reset = this.getNextResetDisplay('Africa/Casablanca');
       throw new DailyBudgetExceededError(
-        `Daily API call budget reached (${record.callsToday}/${this.maxDailyBudget} calls used today on Pacific date ${record.datePacific}). Next reset at ${reset.casablanca} (Casablanca) / ${reset.pacific} (Pacific). State saved. Run 'npm run eval:daily' tomorrow to resume.`
+        `Daily API call budget reached for model [${this.model}] (${record.callsToday}/${this.maxDailyBudget} calls used today on Pacific date ${record.datePacific}). Next reset at ${reset.casablanca} (Casablanca) / ${reset.pacific} (Pacific). State saved. Run 'npm run eval:daily' tomorrow to resume.`
       );
     }
   }
 
   /**
-   * Record every API call attempt (initial call, retry, or failed call).
+   * Record every API call attempt (initial call, retry, or failed call) for this model.
    */
   public recordCall(): void {
     const record = this.readRecord();

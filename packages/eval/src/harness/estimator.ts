@@ -1,4 +1,5 @@
 import { CallEstimates, ConditionId } from '../types.js';
+import { DEFAULT_EVAL_MODEL, getModelProfile } from '../config/models.js';
 
 export interface StageEstimate {
   stage: number;
@@ -13,6 +14,25 @@ export interface StageEstimate {
   minDays: number;
   typicalDays: number;
   maxDays: number;
+  description: string;
+}
+
+export interface ModelRunPlanEstimate {
+  model: string;
+  planName: string;
+  isMainRun: boolean;
+  conditions: ConditionId[];
+  tasks: number;
+  runs: number;
+  minCalls: number;
+  typicalCalls: number;
+  maxCalls: number;
+  dailyBudget: number;
+  minDays: number;
+  typicalDays: number;
+  maxDays: number;
+  minPacingMs: number;
+  pacingNotes: string;
   description: string;
 }
 
@@ -60,7 +80,106 @@ export function estimateApiCalls(
 }
 
 /**
+ * Estimates the Main Benchmark Run with the lightweight model (gemini-3.5-flash-lite).
+ * Runs all conditions (A, B, C0, C, D) with N=3 on 450 calls/day budget.
+ */
+export function estimateMainRun(
+  taskCount = 15,
+  runs = 3,
+  dailyBudget = 450
+): ModelRunPlanEstimate {
+  const conditions: ConditionId[] = ['A', 'B', 'C0', 'C', 'D'];
+  const calls = estimateApiCalls(taskCount, runs, conditions);
+  const profile = getModelProfile(DEFAULT_EVAL_MODEL);
+
+  return {
+    model: DEFAULT_EVAL_MODEL,
+    planName: 'Main Benchmark Evaluation (Full N=3 Multi-Condition Run)',
+    isMainRun: true,
+    conditions,
+    tasks: taskCount,
+    runs,
+    minCalls: calls.minCalls,
+    typicalCalls: calls.typicalCalls,
+    maxCalls: calls.maxCalls,
+    dailyBudget,
+    minDays: Math.ceil(calls.minCalls / dailyBudget), // 195 / 450 = 1 day
+    typicalDays: Math.ceil(calls.typicalCalls / dailyBudget), // 312 / 450 = 1 day
+    maxDays: Math.ceil(calls.maxCalls / dailyBudget), // 585 / 450 = 2 days
+    minPacingMs: profile.minPacingMs,
+    pacingNotes: `Paced at ~4.5s intervals (15 RPM / 250K TPM limits).`,
+    description: `Complete multi-condition benchmark (A, B, C0, C, D) with N=3, completing in 1 to 2 days on free tier.`,
+  };
+}
+
+/**
+ * Estimates an optional spot-check run on Gemini 3.8 Flash (strict 20 RPD / 18 daily budget).
+ */
+export function estimateSpotCheck38(
+  taskCount = 3, // 1 representative family
+  runs = 1,
+  dailyBudget = 18
+): ModelRunPlanEstimate {
+  const conditions: ConditionId[] = ['A', 'B', 'C0', 'C', 'D'];
+  const calls = estimateApiCalls(taskCount, runs, conditions);
+  const profile = getModelProfile('gemini-3.8-flash');
+
+  return {
+    model: 'gemini-3.8-flash',
+    planName: 'Optional Spot-Check Run: Gemini 3.8 Flash (Reasoning Model)',
+    isMainRun: false,
+    conditions,
+    tasks: taskCount,
+    runs,
+    minCalls: calls.minCalls,
+    typicalCalls: calls.typicalCalls,
+    maxCalls: calls.maxCalls,
+    dailyBudget,
+    minDays: Math.ceil(calls.minCalls / dailyBudget),
+    typicalDays: Math.ceil(calls.typicalCalls / dailyBudget),
+    maxDays: Math.ceil(calls.maxCalls / dailyBudget),
+    minPacingMs: profile.minPacingMs,
+    pacingNotes: `Paced at 13.0s minimum intervals (5 RPM / 20 RPD limits).`,
+    description: `Focused spot-check on 1 task family to cross-reference reasoning model behavior under separate quota.`,
+  };
+}
+
+/**
+ * Estimates an optional run on Gemma 4 (26B/31B) with TPM-aware pacing.
+ */
+export function estimateGemmaRun(
+  model = 'gemma-4-26b',
+  taskCount = 15,
+  runs = 3,
+  dailyBudget = 10000
+): ModelRunPlanEstimate {
+  const conditions: ConditionId[] = ['A', 'B', 'C0', 'C', 'D'];
+  const calls = estimateApiCalls(taskCount, runs, conditions);
+  const profile = getModelProfile(model);
+
+  return {
+    model,
+    planName: `Optional Open-Weight Run: ${model.toUpperCase()} (TPM-Aware)`,
+    isMainRun: false,
+    conditions,
+    tasks: taskCount,
+    runs,
+    minCalls: calls.minCalls,
+    typicalCalls: calls.typicalCalls,
+    maxCalls: calls.maxCalls,
+    dailyBudget,
+    minDays: 1,
+    typicalDays: 1,
+    maxDays: 1,
+    minPacingMs: profile.minPacingMs,
+    pacingNotes: `TPM-aware pacing at >= 7.5s (strictly respects 16,000 TPM limit with 30 RPM / 14.4K RPD).`,
+    description: `Open-weight model evaluation with thinkingConfig disabled and TPM-aware pacing.`,
+  };
+}
+
+/**
  * Computes precise estimates and daily durations for the staged evaluation plan.
+ * Maintained for backward compatibility and multi-stage execution.
  */
 export function estimateStagedEvaluation(taskCount = 15, dailyBudget = 18): StageEstimate[] {
   // Stage 1: Conditions A, C0, C with N=1
