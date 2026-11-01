@@ -5,112 +5,30 @@
 
 AetherFlow lets an LLM write a small JavaScript tool when it needs one, then runs that tool inside a locked-down Docker container. If the code fails, the error goes back to the model for another try. Tools that work get saved, so the next similar task can reuse them.
 
-Output of a real run against gemini-3.5-flash-lite (also saved in docs/demo-output.txt).
+Condensed from one real run against gemini-3.5-flash-lite (`npm run demo`). The full output is in [docs/demo-output.txt](docs/demo-output.txt).
 
 ```text
-================================================================================
-                    AETHERFLOW v0.1 DEMONSTRATION STORYBOARD                    
-================================================================================
- EXECUTION MODE     : LIVE MODEL (gemini-3.5-flash-lite)
- SCENARIO           : Autonomous Financial Portfolio Metric Computation
- 1. REGISTRY CHECK   : Agent checks ToolRegistry for "calculate_rolling_cagr" -> MISSING
- 2. JIT SYNTHESIS    : Agent synthesizes dynamic tool code (Attempt 1)
- 3. SANDBOX DETECT   : Sandbox catches unhandled zero-duration error in contract testing
- 4. SELF-HEALING     : Sandbox exception diagnostics routed back to repair loop
- 5. HEALED SYNTHESIS : Agent repairs code with numeric guards & boundary checks (Attempt 2)
- 6. VERIFICATION     : Healed tool passes AST inspection and isolated Sandbox execution
- 7. REGISTRATION     : Verified tool saved to ToolRegistry & persistent SkillRegistry
- 8. INSTANT REUSE    : Follow-up query uses registered tool with 0 synthesis overhead
-================================================================================
+Goal: "Calculate 3-year Rolling CAGR for Portfolio Alpha
+       (startValue: 100,000, endValue: 172,800, years: 3)"
+ToolRegistry.has("calculate_rolling_cagr"): false -> tool synthesis required
 
-[STAGE 1: TASK ARRIVAL & TOOL LOOKUP]
-Goal: "Calculate 3-year Rolling CAGR for Portfolio Alpha (startValue: 100,000, endValue: 172,800, years: 3)"
-Checking ToolRegistry for "calculate_rolling_cagr"...
-  Γå│ ToolRegistry.has("calculate_rolling_cagr"): false (MISSING - Tool Synthesis Required)
+Attempt 1 (written by the model)
+  const cagr = ((endValue / startValue) ** (1 / years) - 1) * 100;
+  AST check: clean
+  Contract check in sandbox, years=0: FAILED (non-finite CAGR)
+  -> error sent back to the model
 
-  21:56:00 [GoalRouter]     (goal:received       ): {"goal":"Calculate 3-year Rolling CAGR for Portfolio Alpha (startValue: 100,000, endValue: 172,800, years: 3)","targetTool":"calculate_rolling_cagr"}
-[STAGE 2: INITIAL SYNTHESIS ATTEMPT 1]
-  21:56:00 [Synthesizer]    (tool:requested      ): {"attempt":1,"tool":"calculate_rolling_cagr"}
-  Querying live model gemini-3.5-flash-lite for initial candidate...
-  Generated candidate code (Draft v1):
-export default async function execute(args) {
-    const { startValue, endValue, years } = args;
-    const cagr = ((endValue / startValue) ** (1 / years) - 1) * 100;
-    return {
-        cagr: Math.round(cagr * 100) / 100
-    };
-}
+Attempt 2 (repaired: input checks, guard for years <= 0)
+  AST check: clean
+  years=0          -> {"cagr":0,"note":"Zero duration"}
+  3 years, 1.728x  -> {"cagr":20}
+  Sandbox verification: PASSED
+  Saved "calculate_rolling_cagr"
 
-[STAGE 3: VERIFIED SANDBOX EXECUTION ΓÇö CONTRACT TESTING]
-  Executing static AST verification...
-  Γå│ AST Clean: true
-  Executing edge-case contract in Sandbox: { startValue: 100000, endValue: 120000, years: 0 }
-  Γ¥î Sandbox Verification FAILED: Contract check failed: years=0 yielded non-finite CAGR (null)
-  21:56:02 [Sandbox]        (sandbox:error       ): {"attempt":1,"error":"Contract check failed: years=0 yielded non-finite CAGR (null)"}
-
-[STAGE 4: SELF-HEALING FEEDBACK LOOP TRIGGERED]
-  Routing error diagnostic back to Synthesizer: "Contract check failed: years=0 yielded non-finite CAGR (null)"
-  21:56:02 [Microkernel]    (self_heal:triggered ): {"attempt":1,"diagnostic":"Contract check failed: years=0 yielded non-finite CAGR (null)"}
-
-[STAGE 5: ITERATIVE REPAIR & HARDENED SYNTHESIS (ATTEMPT 2)]
-  21:56:02 [Synthesizer]    (tool:requested      ): {"attempt":2,"tool":"calculate_rolling_cagr","reason":"self_heal"}
-  Querying live model gemini-3.5-flash-lite for self-healed repair...
-  Generated repaired code (Draft v2 - Self-Healed):
-export default async function execute(args) {
-    const { startValue, endValue, years } = args;
-
-    // Validate inputs
-    if (typeof startValue !== 'number' || typeof endValue !== 'number' || typeof years !== 'number') {
-        return { cagr: 0.0, note: "Invalid input types" };
-    }
-
-    if (startValue <= 0 || endValue <= 0) {
-        return { cagr: 0.0, note: "Values must be greater than zero" };
-    }
-
-    // Handle zero or negative duration safely
-    if (years <= 0) {
-        return { cagr: 0.0, note: "Zero duration" };
-    }
-
-    // Compute CAGR
-    const cagr = ((endValue / startValue) ** (1 / years) - 1) * 100;
-
-    return {
-        cagr: Math.round(cagr * 100) / 100
-    };
-}
-
-[STAGE 6: SANDBOX VERIFICATION OF REPAIRED TOOL]
-  Γå│ AST Clean: true
-  Γå│ Edge-case test (years: 0): Result = {"cagr":0,"note":"Zero duration"}
-  Γå│ Standard test (3-year 1.728x): Result = {"cagr":20}
-  Γ£ö Sandbox Verification: PASSED (100% Contract Satisfaction)
-  21:56:03 [Sandbox]        (tool:synthesized    ): {"toolName":"calculate_rolling_cagr","iterations":2}
-
-[STAGE 7: REGISTRATION & PERSISTENCE]
-  21:56:03 [Microkernel]    (tool:synthesized    ): {"toolName":"calculate_rolling_cagr","registeredTo":["ToolRegistry","SkillRegistry"]}
-  Γ£ö Registered "calculate_rolling_cagr" into active ToolRegistry.
-  Γ£ö Indexed into persistent SkillRegistry for fuzzy vector lookup.
-
-[STAGE 8: FOLLOW-UP GOAL & INSTANT REUSE]
-Goal 2: "Calculate 5-year Rolling CAGR for Portfolio Beta (startValue: 50,000, endValue: 125,000, years: 5)"
-Checking ToolRegistry for "calculate_rolling_cagr"...
-  Γå│ ToolRegistry.has("calculate_rolling_cagr"): true (CACHE HIT ΓÇö Zero-Cost Reuse)
-  21:56:03 [GoalRouter]     (tool:executed       ): {"toolName":"calculate_rolling_cagr","goal":"Calculate 5-year Rolling CAGR for Portfolio Beta (startValue: 50,000, endValue: 125,000, years: 5)","synthesisCallsAvoided":1}
-  Γå│ Execution in Sandbox: {"cagr":20.11} (Executed in 125ms)
-
-================================================================================
-                          DEMO EXECUTION SUMMARY                                
-================================================================================
-  Initial Tool Lookup   : MISS (Required JIT Synthesis)
-  Attempt 1 Status      : FAILED in Sandbox (Edge-case zero duration caught)
-  Self-Healing Recovery : SUCCESS (Iterative repair prompt generated robust code)
-  Verification Mode     : AST Scanning + Subprocess/Docker Sandbox Isolation
-  Second Tool Lookup    : HIT (Immediate reuse from ToolRegistry)
-  Tokens Consumed Goal 2: 0 model tokens (100% amortized reuse)
-  Status                : ALL SYSTEM CAPABILITIES DEMONSTRATED
-================================================================================
+Goal 2: "Calculate 5-year Rolling CAGR for Portfolio Beta
+         (startValue: 50,000, endValue: 125,000, years: 5)"
+ToolRegistry.has("calculate_rolling_cagr"): true -> reused, no synthesis call
+Sandbox result: {"cagr":20.11}  (125 ms), 0 model tokens for this goal
 ```
 
 ## How it works
