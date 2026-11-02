@@ -15,6 +15,22 @@ if (typeof process.loadEnvFile === 'function') {
   } catch {}
 }
 
+function formatSimpleModelName(model: string): string {
+  const m = (model || '').toLowerCase();
+  if (m.includes('3.5') || m.includes('flash')) return 'gemini 3.5 flash';
+  if (m.includes('fable')) return 'claude fable';
+  if (m.includes('sonnet')) return 'claude sonnet';
+  if (m.includes('haiku')) return 'claude haiku';
+  if (m.includes('gpt-4o-mini')) return 'gpt-4o mini';
+  if (m.includes('gpt-4o')) return 'gpt-4o';
+  if (m.includes('o1')) return 'o1';
+  if (m.includes('o3')) return 'o3';
+  if (m.includes('deepseek')) return 'deepseek';
+  if (m.includes('llama')) return 'llama 3.3';
+  if (m.includes('simulation')) return 'offline simulation';
+  return model;
+}
+
 function detectActiveProvider(): { provider: any; model: string; displayName: string; isLive: boolean } {
   if (process.env.PROVIDER) {
     return {
@@ -99,8 +115,8 @@ export async function startRepl() {
   });
 
   const modeBadge = hasKey
-    ? `\x1b[32m[Active: Live ${detected.displayName} (${activeModel})]\x1b[0m`
-    : `\x1b[33m[Active: Offline Simulation Engine]\x1b[0m`;
+    ? `\x1b[32m[${formatSimpleModelName(activeModel)}]\x1b[0m`
+    : `\x1b[33m[offline simulation]\x1b[0m`;
 
   console.log('\x1b[36m\x1b[1m');
   console.log('╔══════════════════════════════════════════════════════════════════════════╗');
@@ -172,7 +188,7 @@ export async function startRepl() {
   }
 
   function getPromptString(): string {
-    return `\x1b[35m\x1b[1maether\x1b[0m \x1b[2m[${kernel.getModel()}]\x1b[0m\x1b[1m>\x1b[0m `;
+    return `\x1b[35m\x1b[1maether\x1b[0m \x1b[2m[${formatSimpleModelName(kernel.getModel())}]\x1b[0m\x1b[1m>\x1b[0m `;
   }
 
   const rl = readline.createInterface({
@@ -303,7 +319,7 @@ export async function startRepl() {
         console.log(`\x1b[2mType /model to see which providers are currently online!\x1b[0m\n`);
       } else {
         console.log(
-          `\n\x1b[32m✔ Active Model:\x1b[0m \x1b[1m${targetModel}\x1b[0m \x1b[2m(Provider: ${kernel.provider.name} [ONLINE])\x1b[0m\n`
+          `\n\x1b[32m✔ Active model:\x1b[0m \x1b[1m${formatSimpleModelName(targetModel)}\x1b[0m\n`
         );
       }
 

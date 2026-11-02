@@ -21,6 +21,22 @@ const c = {
   blue: (s: string) => `\x1b[34m${s}\x1b[0m`,
 };
 
+function formatSimpleModelName(model: string): string {
+  const m = (model || '').toLowerCase();
+  if (m.includes('3.5') || m.includes('flash')) return 'gemini 3.5 flash';
+  if (m.includes('fable')) return 'claude fable';
+  if (m.includes('sonnet')) return 'claude sonnet';
+  if (m.includes('haiku')) return 'claude haiku';
+  if (m.includes('gpt-4o-mini')) return 'gpt-4o mini';
+  if (m.includes('gpt-4o')) return 'gpt-4o';
+  if (m.includes('o1')) return 'o1';
+  if (m.includes('o3')) return 'o3';
+  if (m.includes('deepseek')) return 'deepseek';
+  if (m.includes('llama')) return 'llama 3.3';
+  if (m.includes('simulation')) return 'offline simulation';
+  return model;
+}
+
 function detectActiveProvider(): { provider: any; model: string; displayName: string; isLive: boolean } {
   if (process.env.PROVIDER) {
     return {
@@ -61,7 +77,7 @@ ${c.cyan('  / _ \\____  / /_/ /_  ___  _____/ __/ (_)___ _    __     ')}
 ${c.cyan(' / ___/ __ \\/ __/ __ \\/ _ \\/ ___/ /_ / / __ \\ | /| / /     ')}
 ${c.cyan('/_/  /_/ /_/\\__/_/ /_/\\___/_/  /_/  /_/\\___/ |/ |/        ')}
 ${c.dim(`Autonomous Multi-Agent Microkernel & JIT Sandbox Engine v0.1.0`)}
-${c.dim(`[Mode: ${hasKey ? c.green(`Live ${detected.displayName} (${activeModel})`) : c.yellow('Offline Simulation Engine')}]`)}
+${c.dim(`[${hasKey ? c.green(formatSimpleModelName(activeModel)) : c.yellow('offline simulation')}]`)}
 `;
 
 async function main() {
