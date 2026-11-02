@@ -125,10 +125,61 @@ export async function startRepl() {
     }
   });
 
+  // Tab auto-completion for commands, models, and registered tools
+  function completer(line: string): [string[], string] {
+    const commands = [
+      '/help',
+      '/model',
+      '/tools',
+      '/code',
+      '/synth',
+      '/exec',
+      '/examples',
+      '/audit',
+      '/clear',
+      '/exit',
+    ];
+
+    if (line.startsWith('/exec ') || line.startsWith('/code ') || line.startsWith('/inspect ')) {
+      const prefix = line.startsWith('/exec ') ? '/exec ' : line.startsWith('/inspect ') ? '/inspect ' : '/code ';
+      const sub = line.slice(prefix.length).trim();
+      const toolNames = kernel.registry.list().map((t) => t.name);
+      const hits = toolNames.filter((n) => n.startsWith(sub)).map((n) => prefix + n);
+      return [hits.length ? hits : toolNames.map((n) => prefix + n), line];
+    }
+
+    if (line.startsWith('/model ')) {
+      const sub = line.slice(7).trim();
+      const modelSuggestions = [
+        'gemini-3.5-flash-lite',
+        'gemini-2.0-flash',
+        'claude-fable-5',
+        'claude-fable',
+        'claude-3-5-sonnet',
+        'gpt-4o',
+        'gpt-4o-mini',
+        'deepseek-chat',
+        'deepseek-r1',
+        'llama-3.3-70b-versatile',
+        'llama3.2',
+      ];
+      const hits = modelSuggestions.filter((m) => m.startsWith(sub)).map((m) => '/model ' + m);
+      return [hits.length ? hits : modelSuggestions.map((m) => '/model ' + m), line];
+    }
+
+    const hits = commands.filter((c) => c.startsWith(line));
+    return [hits.length ? hits : commands, line];
+  }
+
+  function getPromptString(): string {
+    return `\x1b[35m\x1b[1maether\x1b[0m \x1b[2m[${kernel.getModel()}]\x1b[0m\x1b[1m>\x1b[0m `;
+  }
+
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
-    prompt: '\x1b[35m\x1b[1maether>\x1b[0m ',
+    completer,
+    prompt: getPromptString(),
   });
 
   rl.prompt();
@@ -154,6 +205,12 @@ export async function startRepl() {
 
     if (input === '/help' || input === 'help' || input === '?') {
       printReplHelp();
+      rl.prompt();
+      return;
+    }
+
+    if (input === '/examples' || input === 'examples') {
+      printExamples();
       rl.prompt();
       return;
     }
@@ -236,10 +293,13 @@ export async function startRepl() {
       }
 
       kernel.setModel(targetModel);
+      rl.setPrompt(getPromptString());
 
       if (!isKeyAvailable) {
         console.log(`\n\x1b[33m⚠️  Warning: ${requiredKey} is not set in your .env file.\x1b[0m`);
-        console.log(`\x1b[2mSwitched model to "${targetModel}" (${kernel.provider.name}), but live calls require ${requiredKey}.\x1b[0m`);
+        console.log(
+          `\x1b[2mSwitched model to "${targetModel}" (${kernel.provider.name}), but live calls require ${requiredKey}.\x1b[0m`
+        );
         console.log(`\x1b[2mType /model to see which providers are currently online!\x1b[0m\n`);
       } else {
         console.log(
@@ -255,9 +315,39 @@ export async function startRepl() {
       const tools = kernel.registry.list();
       console.log(`\x1b[36m\x1b[1mRegistered Tools on the Shelf (${tools.length}):\x1b[0m`);
       tools.forEach((t) => {
-        console.log(`  • \x1b[32m\x1b[1m${t.name}\x1b[0m: ${t.description}`);
+        const badge = t.isSynthesized ? '\x1b[35m[JIT]\x1b[0m' : '\x1b[32m[Core]\x1b[0m';
+        console.log(`  • ${badge} \x1b[1m${t.name}\x1b[0m: ${t.description}`);
       });
-      console.log(`\x1b[2mTip: You can run any tool directly with: /exec <toolName> {"key": "value"}\x1b[0m\n`);
+      console.log(`\x1b[2mTip: Inspect code with /code <toolName>  |  Run with /exec <toolName> {"key": "val"}\x1b[0m\n`);
+      rl.prompt();
+      return;
+    }
+
+    // Inspect the JavaScript code of any tool
+    if (input.startsWith('/code ') || input.startsWith('/inspect ')) {
+      const toolName = input.replace(/^\/(code|inspect)\s+/, '').trim();
+      const tool = kernel.registry.get(toolName);
+      if (!tool) {
+        console.log(`\x1b[31m✖ Tool "${toolName}" not found. Type /tools to view available tools.\x1b[0m\n`);
+        rl.prompt();
+        return;
+      }
+      console.log(`\n\x1b[1m\x1b[36m====================== TOOL INSPECTOR: ${tool.name} ======================\x1b[0m`);
+      console.log(`\x1b[1mDescription:\x1b[0m ${tool.description}`);
+      console.log(
+        `\x1b[1mType:\x1b[0m        ${tool.isSynthesized ? '\x1b[35mDynamic JIT Synthesized Tool\x1b[0m' : '\x1b[32mStandard Built-in Core Tool\x1b[0m'}`
+      );
+      console.log(`\x1b[1mParameters:\x1b[0m  ${JSON.stringify(tool.parameters)}`);
+
+      if (tool.synthesizedCode) {
+        console.log(`\n\x1b[1m\x1b[33mVerified JavaScript Code (Executing in Docker Sandbox):\x1b[0m`);
+        console.log('\x1b[2m────────────────────────────────────────────────────────────────────────────────\x1b[0m');
+        console.log(`\x1b[36m${tool.synthesizedCode}\x1b[0m`);
+        console.log('\x1b[2m────────────────────────────────────────────────────────────────────────────────\x1b[0m\n');
+      } else {
+        console.log(`\x1b[2m(Native built-in handler compiled in @aether-flow/core)\x1b[0m\n`);
+      }
+
       rl.prompt();
       return;
     }
@@ -280,7 +370,7 @@ export async function startRepl() {
         args = { input: rawArgs };
       }
 
-      console.log(`\x1b[33mExecuting "${toolName}" with input:\x1b[0m`, args);
+      console.log(`\x1b[33mExecuting "${toolName}" in Docker sandbox with input:\x1b[0m`, args);
       try {
         const output = await kernel.executor.runTool(toolName, args);
         console.log(`\x1b[32m\x1b[1m✔ Output Result:\x1b[0m`);
@@ -309,7 +399,8 @@ export async function startRepl() {
 
       if (result.success && result.tool) {
         console.log(`\x1b[32m✔ JIT Tool "${result.tool.name}" synthesized & verified in sandbox!\x1b[0m`);
-        console.log(`\x1b[2mIterations: ${result.iterations} | Status: Ready in registry\x1b[0m\n`);
+        console.log(`\x1b[2mIterations: ${result.iterations} | Status: Ready in registry\x1b[0m`);
+        console.log(`\x1b[2mTip: Inspect the code the AI wrote with: /code ${result.tool.name}\x1b[0m\n`);
       } else {
         console.log(`\x1b[31m✖ Synthesis failed: ${result.error}\x1b[0m\n`);
       }
@@ -453,6 +544,33 @@ function printModelStatus(kernel: AetherKernel) {
   console.log('\x1b[1m\x1b[36m================================================================================\x1b[0m\n');
 }
 
+function printExamples() {
+  console.log(`
+\x1b[1m\x1b[36m========================= PRESET EXAMPLES TO TRY =========================\x1b[0m
+\x1b[2mCopy and paste any of these directly into the aether> prompt:\x1b[0m
+
+\x1b[1m1. 📊 Statistics & Data Variance:\x1b[0m
+   \x1b[33mCalculate the standard deviation and variance of numbers: 12, 45, 67, 89, 120\x1b[0m
+
+\x1b[1m2. 💰 Financial Portfolio CAGR:\x1b[0m
+   \x1b[33mCalculate 3-year compound growth: start 50000, end 120000, years 3\x1b[0m
+
+\x1b[1m3. 🔢 High-Speed Prime Factorization:\x1b[0m
+   \x1b[33mFind all prime numbers between 1 and 1000 and calculate their average\x1b[0m
+
+\x1b[1m4. 📧 Regex Pattern Extraction:\x1b[0m
+   \x1b[33mParse this text and extract all email addresses: contact support@corp.com or sales@store.org\x1b[0m
+
+\x1b[1m5. 🛡️ Security Injection Firewall Audit:\x1b[0m
+   \x1b[33m/audit export API_KEY="AIzaSySecretFakeApiKey12345678901234"\x1b[0m
+
+\x1b[1m6. 🛠️ Inspect Synthesized Code:\x1b[0m
+   \x1b[33m/code calculate_rolling_cagr\x1b[0m
+
+\x1b[1m===========================================================================\x1b[0m
+`);
+}
+
 function printReplHelp() {
   console.log(`
 \x1b[1m\x1b[36m====================== AETHERFLOW USER GUIDE ======================\x1b[0m
@@ -462,19 +580,16 @@ function printReplHelp() {
   The AI will synthesize any missing code, test it in Docker, and give you the answer.
 
   \x1b[1mUniversal Model Support:\x1b[0m Works with ANY model (Claude Fable, Mythos, GPT-4o/5, Gemini, DeepSeek, Groq, Ollama).
+  \x1b[1mQuick Examples Menu:\x1b[0m Type \x1b[33m/examples\x1b[0m to see 5 ready-to-run scenarios.
 
-  \x1b[1mExamples you can copy and paste:\x1b[0m
-  • \x1b[33mCalculate the standard deviation and variance of numbers: 12, 45, 67, 89, 120\x1b[0m
-  • \x1b[33mFind all prime numbers between 1 and 1000 and calculate their average\x1b[0m
-  • \x1b[33mParse this text and extract all email addresses: contact support@corp.com\x1b[0m
-  • \x1b[33mCalculate 3-year compound growth: start 50000, end 120000, years 3\x1b[0m
-
-\x1b[1m🛠️ SLASH COMMANDS:\x1b[0m
+\x1b[1m🛠️ SLASH COMMANDS (Press Tab to auto-complete):\x1b[0m
   • \x1b[32m/model\x1b[0m                        Show all models, providers, and their ONLINE/OFFLINE status
   • \x1b[32m/model <name>\x1b[0m                 Switch to ANY model (e.g. /model claude-fable-5, /model gpt-4o)
   • \x1b[32m/tools\x1b[0m                        Show all currently registered tools on the shelf
+  • \x1b[32m/code <toolName>\x1b[0m              Inspect the real JavaScript code the AI wrote
   • \x1b[32m/synth <name> [purpose]\x1b[0m       Make the AI craft a new tool & test it in Docker
   • \x1b[32m/exec <toolName> [jsonArgs]\x1b[0m   Run any tool directly with your own input data
+  • \x1b[32m/examples\x1b[0m                     Show copy-pasteable example scenarios
   • \x1b[32m/audit <text>\x1b[0m                 Test the firewall for prompt injections or secrets
   • \x1b[32m/help\x1b[0m                         Show this guide
   • \x1b[32m/clear\x1b[0m                        Clear the screen
