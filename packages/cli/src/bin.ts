@@ -30,13 +30,32 @@ function formatSimpleModelName(model: string): string {
     if (m.includes('3.5') || m.includes('flash')) return 'gemini 3.5 flash';
     return 'gemini';
   }
-  if (m.includes('claude') || m.includes('fable') || m.includes('mythos') || m.includes('anthropic')) {
-    if (m.includes('fable')) return 'claude fable';
-    if (m.includes('mythos')) return 'claude mythos';
-    if (m.includes('sonnet')) return 'claude sonnet';
-    if (m.includes('haiku')) return 'claude haiku';
-    if (m.includes('opus')) return 'claude opus';
-    return 'claude';
+  // Claude models - include family and version number (e.g. "claude sonnet 5.5", "claude fable 5")
+  if (m.includes('claude') || m.includes('fable') || m.includes('mythos') || m.includes('anthropic') || m.includes('sonnet') || m.includes('haiku')) {
+    let family = 'fable';
+    if (m.includes('sonnet')) family = 'sonnet';
+    else if (m.includes('haiku')) family = 'haiku';
+    else if (m.includes('opus')) family = 'opus';
+    else if (m.includes('fable')) family = 'fable';
+    else if (m.includes('mythos')) family = 'mythos';
+
+    let version = '';
+    const dotMatch = m.match(/\b\d+\.\d+\b/);
+    if (dotMatch) {
+      version = dotMatch[0];
+    } else {
+      const dashMatch = m.match(/(?:claude-)?(\d+)-(\d+)/);
+      if (dashMatch) {
+        version = dashMatch[1] + '.' + dashMatch[2];
+      } else {
+        const singleMatch = m.match(/\b(\d+)\b/);
+        if (singleMatch) {
+          version = singleMatch[1];
+        }
+      }
+    }
+
+    return version ? `claude ${family} ${version}` : `claude ${family}`;
   }
   if (m.includes('gpt') || m.includes('openai') || m.startsWith('o1') || m.startsWith('o3')) {
     if (m.includes('4o-mini')) return 'gpt-4o mini';
