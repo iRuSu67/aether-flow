@@ -164,10 +164,11 @@ export async function startRepl() {
 
   console.log('\x1b[36m\x1b[1m');
   console.log('╔══════════════════════════════════════════════════════════════════════════╗');
-  console.log('║               AETHERFLOW INTERACTIVE TERMINAL (REPL)                  ║');
+  console.log('║                  AETHERFLOW INTERACTIVE TERMINAL (REPL)                  ║');
   console.log('║      Type any math, data, or coding problem — or /help for guidance      ║');
   console.log('╚══════════════════════════════════════════════════════════════════════════╝');
-  console.log('\x1b[0m' + modeBadge + '\n');
+  console.log('\x1b[0m' + modeBadge);
+  console.log('\x1b[2mType /help for instructions, /examples for presets, or /model to switch AI.\x1b[0m\n');
 
   kernel.bus.subscribe((event: CognitiveEvent) => {
     if (event.severity === 'error') {
