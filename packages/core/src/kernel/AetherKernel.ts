@@ -300,6 +300,29 @@ export class AetherKernel {
     };
   }
 
+  setProvider(provider: ModelProvider): void {
+    this.provider = provider;
+    this.architect = new ArchitectAgent(this.provider, this.bus);
+    this.critic = new CriticAgent(this.provider, this.bus);
+    this.synthesizer = new SynthesizerAgent(this.provider, this.bus);
+    this.executor = new ExecutorAgent(this.provider, this.bus, this.registry);
+    this.forge = new ToolForge(this.provider, this.registry, this.sandbox, this.bus);
+  }
+
+  setModel(modelName: string): void {
+    if (this.provider && typeof this.provider.setModel === 'function') {
+      this.provider.setModel(modelName);
+    }
+    this.config.modelName = modelName;
+  }
+
+  getModel(): string {
+    if (this.provider && typeof this.provider.getModel === 'function') {
+      return this.provider.getModel();
+    }
+    return this.config.modelName || 'default';
+  }
+
   async stop(): Promise<void> {
     if (this.telemetryServer) {
       await this.telemetryServer.stop();

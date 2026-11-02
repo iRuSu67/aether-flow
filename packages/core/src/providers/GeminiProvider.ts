@@ -7,7 +7,20 @@ export class GeminiProvider implements ModelProvider {
 
   constructor(apiKey?: string, model?: string) {
     this.apiKey = apiKey || process.env.GEMINI_API_KEY || '';
-    this.model = model || process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
+    this.model =
+      model ||
+      process.env.GEMINI_MODEL ||
+      process.env.MODEL_NAME ||
+      process.env.MODEL ||
+      'gemini-3.5-flash-lite';
+  }
+
+  setModel(model: string): void {
+    this.model = model;
+  }
+
+  getModel(): string {
+    return this.model;
   }
 
   async generateText(request: CompletionRequest): Promise<string> {
@@ -29,30 +42,28 @@ export class GeminiProvider implements ModelProvider {
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents,
-        generationConfig: {
-          temperature: request.temperature ?? 0.7,
-          maxOutputTokens: request.maxTokens ?? 2048,
-        },
-      }),
+      body: JSON.stringify({ contents }),
     });
 
     if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`Gemini API Error (${response.status}): ${errText}`);
+      const err = await response.text();
+      throw new Error(`Gemini API Error (${response.status}): ${err}`);
     }
 
     const data = (await response.json()) as {
-      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+      candidates?: Array<{
+        content?: {
+          parts?: Array<{ text?: string }>;
+        };
+      }>;
     };
 
     return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
   }
 
   async generateStructured<T>(request: CompletionRequest, schemaDescription: string): Promise<T> {
-    const structuredPrompt = `${request.prompt}\n\nYou MUST respond STRICTLY with valid JSON conforming to this schema:\n${schemaDescription}\nDo not wrap in backticks or markdown if possible.`;
-    const text = await this.generateText({ ...request, prompt: structuredPrompt });
+    const prompt = `${request.prompt}\nRespond strictly with valid JSON conforming to:\n${schemaDescription}`;
+    const text = await this.generateText({ ...request, prompt });
     const cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
     return JSON.parse(cleaned) as T;
   }

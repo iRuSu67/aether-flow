@@ -9,4 +9,6 @@ export interface ModelProvider {
   name: string;
   generateText(request: CompletionRequest): Promise<string>;
   generateStructured<T>(request: CompletionRequest, schemaDescription: string): Promise<T>;
+  setModel?(model: string): void;
+  getModel?(): string;
 }

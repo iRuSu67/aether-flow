@@ -12,8 +12,21 @@ export class AnthropicProvider implements ModelProvider {
     baseURL = 'https://api.anthropic.com/v1'
   ) {
     this.apiKey = apiKey || process.env.ANTHROPIC_API_KEY || '';
-    this.model = model || process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022';
+    this.model =
+      model ||
+      process.env.ANTHROPIC_MODEL ||
+      process.env.MODEL_NAME ||
+      process.env.MODEL ||
+      'claude-fable-5';
     this.baseURL = baseURL;
+  }
+
+  setModel(model: string): void {
+    this.model = model;
+  }
+
+  getModel(): string {
+    return this.model;
   }
 
   async generateText(request: CompletionRequest): Promise<string> {

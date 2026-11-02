@@ -105,6 +105,19 @@ export async function startRepl() {
       return;
     }
 
+    if (input.startsWith('/model')) {
+      const newModel = input.slice(6).trim();
+      if (!newModel) {
+        console.log(`\x1b[36mCurrent model:\x1b[0m \x1b[1m${kernel.getModel()}\x1b[0m\n`);
+        rl.prompt();
+        return;
+      }
+      kernel.setModel(newModel);
+      console.log(`\x1b[32m✔ Active model updated to:\x1b[0m \x1b[1m${newModel}\x1b[0m\n`);
+      rl.prompt();
+      return;
+    }
+
     if (input === '/tools') {
       const tools = kernel.registry.list();
       console.log(`\x1b[36m\x1b[1mRegistered Tools on the Shelf (${tools.length}):\x1b[0m`);
@@ -227,6 +240,8 @@ function printReplHelp() {
   You do NOT need code. Just type your problem or calculation and hit Enter!
   The AI will synthesize any missing code, test it in Docker, and give you the answer.
 
+  \x1b[1mUniversal Model Support:\x1b[0m Works with ANY model (Claude Fable, Mythos, GPT-4o/5, Gemini, DeepSeek, Groq, Ollama).
+  
   \x1b[1mExamples you can copy and paste:\x1b[0m
   • \x1b[33mCalculate the standard deviation and variance of numbers: 12, 45, 67, 89, 120\x1b[0m
   • \x1b[33mFind all prime numbers between 1 and 1000 and calculate their average\x1b[0m
@@ -234,6 +249,7 @@ function printReplHelp() {
   • \x1b[33mCalculate 3-year compound growth: start 50000, end 120000, years 3\x1b[0m
 
 \x1b[1m🛠️ SLASH COMMANDS:\x1b[0m
+  • \x1b[32m/model <name>\x1b[0m                 Switch to ANY model live (e.g. /model claude-fable-5, /model gpt-4o)
   • \x1b[32m/tools\x1b[0m                        Show all currently registered tools on the shelf
   • \x1b[32m/synth <name> [purpose]\x1b[0m       Make the AI craft a new tool & test it in Docker
   • \x1b[32m/exec <toolName> [jsonArgs]\x1b[0m   Run any tool directly with your own input data

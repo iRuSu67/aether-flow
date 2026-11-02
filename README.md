@@ -102,12 +102,16 @@ AetherFlow auto-detects whatever API key is in your environment or `.env` file:
 | Provider | Popular Models | Auto-Detected Variable | Config `provider` |
 | :--- | :--- | :--- | :---: |
 | **Google Gemini** | `gemini-3.5-flash-lite`, `gemini-1.5-flash` | `GEMINI_API_KEY` | `'gemini'` |
-| **Anthropic Claude** | `claude-3-5-sonnet-20241022`, `claude-3-5-haiku` | `ANTHROPIC_API_KEY` | `'anthropic'` |
+| **Anthropic Claude** | Claude Fable (`claude-fable-5`), `claude-3-5-sonnet` | `ANTHROPIC_API_KEY` | `'anthropic'` |
 | **OpenAI** | `gpt-4o-mini`, `gpt-4o`, `o1-mini` | `OPENAI_API_KEY` | `'openai'` |
 | **DeepSeek** | `deepseek-chat` | `DEEPSEEK_API_KEY` | `'deepseek'` |
 | **Groq** | `llama-3.3-70b-versatile` | `GROQ_API_KEY` | `'groq'` |
 | **Ollama (Local)** | Any local model (`llama3.2`, `mistral`, `qwen`) | `OLLAMA_BASE_URL` | `'ollama'` |
 | **Offline Simulator** | Zero-key deterministic engine | *(None required)* | `'mock'` |
+
+> [!TIP]
+> **Universal Model Agnostic Architecture**:
+> You can pass **any model string** from any provider (e.g. Claude Fable `claude-fable-5`, `claude-3-5-sonnet`, `gpt-4o`, `deepseek-chat`, `gemini-3.5-flash-lite`) by setting `modelName: 'your-model'` in config or `MODEL=your-model` in `.env`.
 
 There are two ways to use AetherFlow in your project:
 

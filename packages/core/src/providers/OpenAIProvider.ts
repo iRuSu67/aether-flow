@@ -6,10 +6,23 @@ export class OpenAIProvider implements ModelProvider {
   private baseURL: string;
   private model: string;
 
-  constructor(apiKey?: string, model = 'gpt-4o', baseURL = 'https://api.openai.com/v1') {
+  constructor(apiKey?: string, model?: string, baseURL = 'https://api.openai.com/v1') {
     this.apiKey = apiKey || process.env.OPENAI_API_KEY || '';
-    this.model = model;
+    this.model =
+      model ||
+      process.env.OPENAI_MODEL ||
+      process.env.MODEL_NAME ||
+      process.env.MODEL ||
+      'gpt-4o';
     this.baseURL = baseURL;
+  }
+
+  setModel(model: string): void {
+    this.model = model;
+  }
+
+  getModel(): string {
+    return this.model;
   }
 
   async generateText(request: CompletionRequest): Promise<string> {
