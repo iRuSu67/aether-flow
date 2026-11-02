@@ -335,7 +335,7 @@ To preserve academic integrity and honest reporting:
   2. Targets the active model (default: `gemini-3.5-flash-lite`, or `--model=gemini-3.8-flash`).
   3. Enforces 450 daily budget for 3.5 Flash Lite (or 18 for 3.8 Flash) and ~4.5s request pacing.
   4. Automatically runs $N=3$ multi-condition tasks, checkpoints state after each task run, and cleanly exits when the daily budget is met.
-  5. Writes isolated results to `eval_results_gemini-3_5-flash-lite.json`.
+  5. Writes isolated results to `eval/results/<date>.json` (or `eval_results_<model>.json`).
 
 - **Smoke Test Command (`npm run eval:smoke`):**
   - Dispatches exactly **ONE** live API call to the default model (`gemini-3.5-flash-lite`, or specified via `--model=...`).

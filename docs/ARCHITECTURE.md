@@ -73,4 +73,4 @@ When a goal requires a capability missing from the standard registry (e.g. speci
 
 ## Benchmarks & Performance
 
-In subprocess developer mode, in-memory VM dispatch executes in ~15–200ms. In production Docker mode, fail-closed container startup takes ~1,000–1,300ms with ~20ms AST pre-verification. Full empirical evaluation results across 15 algorithmic tasks with confidence intervals and cache accounting are detailed in [README.md](../README.md#empirical-evaluation-results) and [`eval_results_gemini-3_5-flash-lite.json`](../eval_results_gemini-3_5-flash-lite.json).
+In subprocess developer mode, in-memory VM dispatch executes in ~15–200ms. In production Docker mode, fail-closed container startup takes ~1,000–1,300ms with ~20ms AST pre-verification. Full empirical evaluation results across 15 algorithmic tasks with confidence intervals and cache accounting are detailed in [README.md](../README.md#empirical-evaluation-results) and [`eval/results/2026-10-30.json`](../eval/results/2026-10-30.json).
