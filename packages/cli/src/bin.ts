@@ -120,7 +120,7 @@ ${c.cyan('   ___        __  __              _____ _                 ')}
 ${c.cyan('  / _ \\____  / /_/ /_  ___  _____/ __/ (_)___ _    __     ')}
 ${c.cyan(' / ___/ __ \\/ __/ __ \\/ _ \\/ ___/ /_ / / __ \\ | /| / /     ')}
 ${c.cyan('/_/  /_/ /_/\\__/_/ /_/\\___/_/  /_/  /_/\\___/ |/ |/        ')}
-${c.dim(`Autonomous Multi-Agent Microkernel & JIT Sandbox Engine v0.1.0`)}
+${c.dim(`Autonomous Multi-Agent Microkernel & JIT Sandbox Engine v0.2.0`)}
 `;
 
 async function main() {

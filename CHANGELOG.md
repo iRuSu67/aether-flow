@@ -5,6 +5,38 @@ All notable changes to the AetherFlow project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-11-02
+
+### Added
+- **First-Class Anthropic Claude Provider**:
+  - Full native integration for Anthropic models (`AnthropicProvider`), with support for Claude Fable, Claude Mythos, Claude Sonnet (3.5/5.5), and Claude Haiku.
+  - Multi-provider auto-detection in `AetherKernel` and CLI across Anthropic, OpenAI, DeepSeek, Groq, local Ollama, and Google Gemini.
+- **Dynamic Model Switching**:
+  - Microkernel `setModel()` and `setProvider()` runtime API to dynamically hot-swap LLMs and provider clients on the fly without restarting the process.
+- **Interactive CLI REPL & Developer Experience**:
+  - `/model`: Live status dashboard displaying all supported AI providers, key readiness (`[ONLINE]` vs `[NO KEY]`), and example model identifiers.
+  - `/code <tool>`: Live tool inspector to view synthesized JavaScript code executed within the Docker container sandbox.
+  - `/exec <tool> [args]`: Direct sandbox invocation command with custom JSON arguments.
+  - `/examples`: Curated menu of real-world copy-paste scenarios (Statistics, Financial CAGR, Prime Factorization, Regex Extraction, Security Audits).
+  - Tab auto-completion in REPL for all slash commands and tool names.
+  - Dynamic prompt badge `aether [model]> ` reflecting the active model.
+- **Environment Auto-Loading**:
+  - Native `.env` file loading via `process.loadEnvFile()` in CLI binary and interactive terminal.
+
+### Changed
+- **CLI Formatting & UI Polish**:
+  - Replaced graphical emojis across CLI and REPL with clean, professional text/ASCII markers (`✔`, `✖`, `▲`, `[ONLINE]`, `[NO KEY]`).
+  - Simplified and standardized model badges (e.g. `[gemini 3.5 flash]`, `[claude sonnet 5.5]`, `[claude fable 5]`).
+  - Deduplicated ASCII banner badges and aligned frame formatting.
+  - Prominent `FINAL RESULT / ANSWER:` output container for natural language queries.
+
+### Removed
+- Removed 14,500+ lines of redundant/duplicate files:
+  - Deleted duplicate 584KB root evaluation dump `eval_results_gemini-3_5-flash-lite.json` in favor of the canonical `eval/results/2026-10-30.json`.
+  - Deleted obsolete raw console test dump `docs/verification-raw.txt`.
+  - Deleted superseded SVG animation assets `docs/demo.svg` and `scripts/make-demo-svg.js`.
+- Updated `.gitignore` to prevent generated evaluation runs (`eval_results_*.json`) from polluting Git status.
+
 ## [0.1.0] - 2026-10-30
 
 ### Scope
