@@ -8,9 +8,39 @@ if (typeof process.loadEnvFile === 'function') {
   } catch {}
 }
 
-const hasKey = Boolean(process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY);
-const activeProvider = (process.env.PROVIDER as any) || (process.env.GEMINI_API_KEY ? 'gemini' : process.env.OPENAI_API_KEY ? 'openai' : 'mock');
-const activeModel = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
+function detectActiveProvider(): { provider: any; model: string; displayName: string; isLive: boolean } {
+  if (process.env.PROVIDER) {
+    return {
+      provider: process.env.PROVIDER,
+      model: process.env.MODEL || 'default',
+      displayName: process.env.PROVIDER.toUpperCase(),
+      isLive: true,
+    };
+  }
+  if (process.env.ANTHROPIC_API_KEY) {
+    return { provider: 'anthropic', model: process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet', displayName: 'Anthropic Claude', isLive: true };
+  }
+  if (process.env.OPENAI_API_KEY && !process.env.GEMINI_API_KEY) {
+    return { provider: 'openai', model: process.env.OPENAI_MODEL || 'gpt-4o-mini', displayName: 'OpenAI', isLive: true };
+  }
+  if (process.env.DEEPSEEK_API_KEY) {
+    return { provider: 'deepseek', model: 'deepseek-chat', displayName: 'DeepSeek', isLive: true };
+  }
+  if (process.env.GROQ_API_KEY) {
+    return { provider: 'groq', model: 'llama-3.3-70b-versatile', displayName: 'Groq', isLive: true };
+  }
+  if (process.env.OLLAMA_BASE_URL) {
+    return { provider: 'ollama', model: 'llama3.2', displayName: 'Ollama (Local)', isLive: true };
+  }
+  if (process.env.GEMINI_API_KEY) {
+    return { provider: 'gemini', model: process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite', displayName: 'Google Gemini', isLive: true };
+  }
+  return { provider: 'mock', model: 'simulation', displayName: 'Offline Simulation Engine', isLive: false };
+}
+const detected = detectActiveProvider();
+const activeProvider = detected.provider;
+const activeModel = detected.model;
+const hasKey = detected.isLive;
 
 export async function startRepl() {
   const kernel = new AetherKernel({
@@ -21,7 +51,7 @@ export async function startRepl() {
   });
 
   const modeBadge = hasKey
-    ? `\x1b[32m[Active: Live ${activeProvider.toUpperCase()} (${activeModel})]\x1b[0m`
+    ? `\x1b[32m[Active: Live ${detected.displayName} (${activeModel})]\x1b[0m`
     : `\x1b[33m[Active: Offline Simulation Engine]\x1b[0m`;
 
   console.log('\x1b[36m\x1b[1m');

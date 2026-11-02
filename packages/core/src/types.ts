@@ -106,7 +106,8 @@ export interface KernelConfig {
   sandboxMode?: 'docker' | 'subprocess';
   unsafeDevMode?: boolean;
   telemetryPort?: number;
-  provider?: 'mock' | 'gemini' | 'openai' | 'ollama';
+  provider?: 'mock' | 'gemini' | 'openai' | 'anthropic' | 'deepseek' | 'groq' | 'ollama';
+  baseURL?: string;
   apiKey?: string;
   modelName?: string;
 }

@@ -11,6 +11,7 @@ import { GeminiProvider } from '../providers/GeminiProvider.js';
 import { MockProvider } from '../providers/MockProvider.js';
 import { ModelProvider } from '../providers/ModelProvider.js';
 import { OpenAIProvider } from '../providers/OpenAIProvider.js';
+import { AnthropicProvider } from '../providers/AnthropicProvider.js';
 import { CheckpointEngine, SwarmCheckpoint } from '../storage/CheckpointEngine.js';
 import { TelemetryServer } from '../telemetry/WebSocketServer.js';
 import { ASTVerifier } from '../tools/ASTVerifier.js';

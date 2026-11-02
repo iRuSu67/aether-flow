@@ -96,6 +96,19 @@ const result = await sandbox.execute(toolCode, { numbers: [1, 2, 3, 4, 5] });
 
 ## Connecting to your AI application
 
+### Supported AI Providers
+AetherFlow auto-detects whatever API key is in your environment or `.env` file:
+
+| Provider | Popular Models | Auto-Detected Variable | Config `provider` |
+| :--- | :--- | :--- | :---: |
+| **Google Gemini** | `gemini-3.5-flash-lite`, `gemini-1.5-flash` | `GEMINI_API_KEY` | `'gemini'` |
+| **Anthropic Claude** | `claude-3-5-sonnet-20241022`, `claude-3-5-haiku` | `ANTHROPIC_API_KEY` | `'anthropic'` |
+| **OpenAI** | `gpt-4o-mini`, `gpt-4o`, `o1-mini` | `OPENAI_API_KEY` | `'openai'` |
+| **DeepSeek** | `deepseek-chat` | `DEEPSEEK_API_KEY` | `'deepseek'` |
+| **Groq** | `llama-3.3-70b-versatile` | `GROQ_API_KEY` | `'groq'` |
+| **Ollama (Local)** | Any local model (`llama3.2`, `mistral`, `qwen`) | `OLLAMA_BASE_URL` | `'ollama'` |
+| **Offline Simulator** | Zero-key deterministic engine | *(None required)* | `'mock'` |
+
 There are two ways to use AetherFlow in your project:
 
 ### 1. Fully Autonomous Agent (`AetherKernel`)
@@ -106,7 +119,7 @@ import { AetherKernel } from '@aether-flow/core';
 
 // Initialize the kernel with live model provider & automatic tool synthesis
 const kernel = new AetherKernel({
-  provider: 'gemini', // or 'openai' or 'mock'
+  provider: 'gemini', // 'gemini' | 'anthropic' | 'openai' | 'deepseek' | 'groq' | 'ollama' | 'mock'
   apiKey: process.env.GEMINI_API_KEY,
   enableJitTools: true,
 });

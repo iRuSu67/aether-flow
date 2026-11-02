@@ -10,6 +10,7 @@ export * from './providers/ModelProvider.js';
 export * from './providers/MockProvider.js';
 export * from './providers/GeminiProvider.js';
 export * from './providers/OpenAIProvider.js';
+export * from './providers/AnthropicProvider.js';
 export * from './tools/Sandbox.js';
 export * from './tools/ToolRegistry.js';
 export * from './tools/ToolForge.js';
