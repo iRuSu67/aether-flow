@@ -1,5 +1,12 @@
 import readline from 'node:readline';
-import { AetherKernel, CognitiveEvent } from '@aether-flow/core';
+import {
+  AetherKernel,
+  CognitiveEvent,
+  AnthropicProvider,
+  GeminiProvider,
+  OpenAIProvider,
+  MockProvider,
+} from '@aether-flow/core';
 
 // Automatically load local .env if present
 if (typeof process.loadEnvFile === 'function') {
@@ -18,25 +25,61 @@ function detectActiveProvider(): { provider: any; model: string; displayName: st
     };
   }
   if (process.env.ANTHROPIC_API_KEY) {
-    return { provider: 'anthropic', model: process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet', displayName: 'Anthropic Claude', isLive: true };
+    return {
+      provider: 'anthropic',
+      model: process.env.ANTHROPIC_MODEL || process.env.MODEL || 'claude-fable-5',
+      displayName: 'Anthropic Claude',
+      isLive: true,
+    };
   }
   if (process.env.OPENAI_API_KEY && !process.env.GEMINI_API_KEY) {
-    return { provider: 'openai', model: process.env.OPENAI_MODEL || 'gpt-4o-mini', displayName: 'OpenAI', isLive: true };
+    return {
+      provider: 'openai',
+      model: process.env.OPENAI_MODEL || process.env.MODEL || 'gpt-4o-mini',
+      displayName: 'OpenAI',
+      isLive: true,
+    };
   }
   if (process.env.DEEPSEEK_API_KEY) {
-    return { provider: 'deepseek', model: 'deepseek-chat', displayName: 'DeepSeek', isLive: true };
+    return {
+      provider: 'deepseek',
+      model: process.env.DEEPSEEK_MODEL || process.env.MODEL || 'deepseek-chat',
+      displayName: 'DeepSeek',
+      isLive: true,
+    };
   }
   if (process.env.GROQ_API_KEY) {
-    return { provider: 'groq', model: 'llama-3.3-70b-versatile', displayName: 'Groq', isLive: true };
+    return {
+      provider: 'groq',
+      model: process.env.GROQ_MODEL || process.env.MODEL || 'llama-3.3-70b-versatile',
+      displayName: 'Groq',
+      isLive: true,
+    };
   }
   if (process.env.OLLAMA_BASE_URL) {
-    return { provider: 'ollama', model: 'llama3.2', displayName: 'Ollama (Local)', isLive: true };
+    return {
+      provider: 'ollama',
+      model: process.env.OLLAMA_MODEL || process.env.MODEL || 'llama3.2',
+      displayName: 'Ollama (Local)',
+      isLive: true,
+    };
   }
   if (process.env.GEMINI_API_KEY) {
-    return { provider: 'gemini', model: process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite', displayName: 'Google Gemini', isLive: true };
+    return {
+      provider: 'gemini',
+      model: process.env.GEMINI_MODEL || process.env.MODEL || 'gemini-3.5-flash-lite',
+      displayName: 'Google Gemini',
+      isLive: true,
+    };
   }
-  return { provider: 'mock', model: 'simulation', displayName: 'Offline Simulation Engine', isLive: false };
+  return {
+    provider: 'mock',
+    model: 'simulation-engine',
+    displayName: 'Offline Simulation Engine',
+    isLive: false,
+  };
 }
+
 const detected = detectActiveProvider();
 const activeProvider = detected.provider;
 const activeModel = detected.model;
@@ -45,7 +88,12 @@ const hasKey = detected.isLive;
 export async function startRepl() {
   const kernel = new AetherKernel({
     provider: activeProvider,
-    apiKey: process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY,
+    apiKey:
+      process.env.ANTHROPIC_API_KEY ||
+      process.env.OPENAI_API_KEY ||
+      process.env.DEEPSEEK_API_KEY ||
+      process.env.GROQ_API_KEY ||
+      process.env.GEMINI_API_KEY,
     modelName: activeModel,
     enableJitTools: true,
   });
@@ -65,8 +113,13 @@ export async function startRepl() {
     if (event.severity === 'error') {
       console.log(`\x1b[31m[ERROR] [${event.agent || 'Kernel'}] ${event.type}\x1b[0m`);
     } else if (event.type === 'tool:executed') {
-      const summary = typeof event.payload?.output === 'object' ? JSON.stringify(event.payload.output) : String(event.payload?.output || '');
-      console.log(`\x1b[32m✔ [Tool Executed: ${event.payload?.toolName || 'tool'}]\x1b[0m \x1b[2m${summary.slice(0, 100)}\x1b[0m`);
+      const summary =
+        typeof event.payload?.output === 'object'
+          ? JSON.stringify(event.payload.output)
+          : String(event.payload?.output || '');
+      console.log(
+        `\x1b[32m✔ [Tool Executed: ${event.payload?.toolName || 'tool'}]\x1b[0m \x1b[2m${summary.slice(0, 100)}\x1b[0m`
+      );
     } else if (event.type === 'tool:synthesized') {
       console.log(`\x1b[35m🛠️ [Tool Synthesized in Sandbox]\x1b[0m \x1b[1m${event.payload?.toolName}\x1b[0m`);
     }
@@ -105,15 +158,95 @@ export async function startRepl() {
       return;
     }
 
+    // Inspect or switch models
     if (input.startsWith('/model')) {
-      const newModel = input.slice(6).trim();
-      if (!newModel) {
-        console.log(`\x1b[36mCurrent model:\x1b[0m \x1b[1m${kernel.getModel()}\x1b[0m\n`);
+      const targetModel = input.slice(6).trim();
+      if (!targetModel) {
+        printModelStatus(kernel);
         rl.prompt();
         return;
       }
-      kernel.setModel(newModel);
-      console.log(`\x1b[32m✔ Active model updated to:\x1b[0m \x1b[1m${newModel}\x1b[0m\n`);
+
+      // Check which provider this model belongs to:
+      const lower = targetModel.toLowerCase();
+      let matchedProvider = 'gemini';
+      let requiredKey = 'GEMINI_API_KEY';
+      let isKeyAvailable = Boolean(process.env.GEMINI_API_KEY);
+
+      if (
+        lower.includes('claude') ||
+        lower.includes('fable') ||
+        lower.includes('mythos') ||
+        lower.includes('anthropic')
+      ) {
+        matchedProvider = 'anthropic';
+        requiredKey = 'ANTHROPIC_API_KEY';
+        isKeyAvailable = Boolean(process.env.ANTHROPIC_API_KEY);
+      } else if (
+        lower.includes('gpt') ||
+        lower.includes('o1') ||
+        lower.includes('o3') ||
+        lower.includes('openai') ||
+        lower.includes('davinci')
+      ) {
+        matchedProvider = 'openai';
+        requiredKey = 'OPENAI_API_KEY';
+        isKeyAvailable = Boolean(process.env.OPENAI_API_KEY);
+      } else if (lower.includes('deepseek')) {
+        matchedProvider = 'deepseek';
+        requiredKey = 'DEEPSEEK_API_KEY';
+        isKeyAvailable = Boolean(process.env.DEEPSEEK_API_KEY);
+      } else if (lower.includes('groq')) {
+        matchedProvider = 'groq';
+        requiredKey = 'GROQ_API_KEY';
+        isKeyAvailable = Boolean(process.env.GROQ_API_KEY);
+      } else if (lower.includes('ollama') || lower.includes('qwen') || lower.includes('mistral')) {
+        matchedProvider = 'ollama';
+        requiredKey = 'OLLAMA_BASE_URL';
+        isKeyAvailable = true;
+      } else if (lower.includes('gemini')) {
+        matchedProvider = 'gemini';
+        requiredKey = 'GEMINI_API_KEY';
+        isKeyAvailable = Boolean(process.env.GEMINI_API_KEY);
+      }
+
+      // Automatically switch the provider instance to match the model
+      if (matchedProvider === 'anthropic') {
+        kernel.setProvider(new AnthropicProvider(process.env.ANTHROPIC_API_KEY, targetModel));
+      } else if (matchedProvider === 'openai') {
+        kernel.setProvider(new OpenAIProvider(process.env.OPENAI_API_KEY, targetModel));
+      } else if (matchedProvider === 'deepseek') {
+        kernel.setProvider(
+          new OpenAIProvider(process.env.DEEPSEEK_API_KEY, targetModel, 'https://api.deepseek.com/v1')
+        );
+      } else if (matchedProvider === 'groq') {
+        kernel.setProvider(
+          new OpenAIProvider(process.env.GROQ_API_KEY, targetModel, 'https://api.groq.com/openai/v1')
+        );
+      } else if (matchedProvider === 'ollama') {
+        kernel.setProvider(
+          new OpenAIProvider(
+            'ollama',
+            targetModel,
+            process.env.OLLAMA_BASE_URL || 'http://localhost:11434/v1'
+          )
+        );
+      } else if (matchedProvider === 'gemini') {
+        kernel.setProvider(new GeminiProvider(process.env.GEMINI_API_KEY, targetModel));
+      }
+
+      kernel.setModel(targetModel);
+
+      if (!isKeyAvailable) {
+        console.log(`\n\x1b[33m⚠️  Warning: ${requiredKey} is not set in your .env file.\x1b[0m`);
+        console.log(`\x1b[2mSwitched model to "${targetModel}" (${kernel.provider.name}), but live calls require ${requiredKey}.\x1b[0m`);
+        console.log(`\x1b[2mType /model to see which providers are currently online!\x1b[0m\n`);
+      } else {
+        console.log(
+          `\n\x1b[32m✔ Active Model:\x1b[0m \x1b[1m${targetModel}\x1b[0m \x1b[2m(Provider: ${kernel.provider.name} 🟢 ONLINE)\x1b[0m\n`
+        );
+      }
+
       rl.prompt();
       return;
     }
@@ -187,7 +320,9 @@ export async function startRepl() {
     if (input.startsWith('/audit ')) {
       const query = input.slice(7);
       const audit = kernel.firewall.auditInput(query);
-      console.log(`Allowed: ${audit.allowed ? '\x1b[32mYES\x1b[0m' : '\x1b[31mNO (BLOCKED BY FIREWALL)\x1b[0m'} (Risk Score: ${audit.riskScore})`);
+      console.log(
+        `Allowed: ${audit.allowed ? '\x1b[32mYES\x1b[0m' : '\x1b[31mNO (BLOCKED BY FIREWALL)\x1b[0m'} (Risk Score: ${audit.riskScore})`
+      );
       if (audit.flaggedRules.length > 0) {
         console.log(`Flagged Security Rules: \x1b[33m${audit.flaggedRules.join(', ')}\x1b[0m`);
       }
@@ -206,7 +341,8 @@ export async function startRepl() {
       const icon = step.status === 'completed' ? '\x1b[32m✔\x1b[0m' : '\x1b[31m✖\x1b[0m';
       console.log(`${icon} \x1b[1m[${step.agentRole}]\x1b[0m ${step.title}`);
       if (step.output) {
-        const outStr = typeof step.output === 'object' ? JSON.stringify(step.output, null, 2) : String(step.output);
+        const outStr =
+          typeof step.output === 'object' ? JSON.stringify(step.output, null, 2) : String(step.output);
         const indented = outStr
           .split('\n')
           .map((l) => '    ' + l)
@@ -226,10 +362,95 @@ export async function startRepl() {
     } catch {}
     console.log(`\x1b[1m${answerStr}\x1b[0m`);
     console.log('\x1b[1m\x1b[32m══════════════════════════════════════════════════════════════\x1b[0m');
-    console.log(`\x1b[2mConsensus Score: ${(res.confidenceScore * 100).toFixed(1)}% | Time: ${res.executionTimeMs.toFixed(1)}ms | Tools: ${res.synthesizedTools.length > 0 ? res.synthesizedTools.join(', ') : 'standard'}\x1b[0m\n`);
+    console.log(
+      `\x1b[2mConsensus Score: ${(res.confidenceScore * 100).toFixed(1)}% | Time: ${res.executionTimeMs.toFixed(1)}ms | Tools: ${res.synthesizedTools.length > 0 ? res.synthesizedTools.join(', ') : 'standard'}\x1b[0m\n`
+    );
 
     rl.prompt();
   });
+}
+
+function printModelStatus(kernel: AetherKernel) {
+  const currentModel = kernel.getModel();
+  const currentProv = kernel.provider.name;
+
+  const providers = [
+    {
+      name: 'Google Gemini',
+      keyEnv: 'GEMINI_API_KEY',
+      hasKey: Boolean(process.env.GEMINI_API_KEY),
+      models: 'gemini-3.5-flash-lite, gemini-2.0-flash, gemini-1.5-pro',
+    },
+    {
+      name: 'Anthropic Claude',
+      keyEnv: 'ANTHROPIC_API_KEY',
+      hasKey: Boolean(process.env.ANTHROPIC_API_KEY),
+      models: 'claude-fable-5, claude-fable, claude-3-5-sonnet, claude-3-5-haiku',
+    },
+    {
+      name: 'OpenAI',
+      keyEnv: 'OPENAI_API_KEY',
+      hasKey: Boolean(process.env.OPENAI_API_KEY),
+      models: 'gpt-4o, gpt-4o-mini, o1, o3-mini',
+    },
+    {
+      name: 'DeepSeek',
+      keyEnv: 'DEEPSEEK_API_KEY',
+      hasKey: Boolean(process.env.DEEPSEEK_API_KEY),
+      models: 'deepseek-chat, deepseek-r1, deepseek-coder',
+    },
+    {
+      name: 'Groq',
+      keyEnv: 'GROQ_API_KEY',
+      hasKey: Boolean(process.env.GROQ_API_KEY),
+      models: 'llama-3.3-70b-versatile, mixtral-8x7b-32768',
+    },
+    {
+      name: 'Ollama (Local)',
+      keyEnv: 'OLLAMA_BASE_URL',
+      hasKey: Boolean(process.env.OLLAMA_BASE_URL || true),
+      models: 'llama3.2, qwen2.5-coder, mistral, deepseek-r1:8b',
+    },
+    {
+      name: 'Offline Simulator',
+      keyEnv: 'None (Built-in)',
+      hasKey: true,
+      models: 'simulation-engine',
+    },
+  ];
+
+  console.log('\n\x1b[1m\x1b[36m============================== MODEL & API STATUS ==============================\x1b[0m');
+  console.log(`\x1b[1mCURRENT ACTIVE:\x1b[0m \x1b[32m\x1b[1m${currentProv}\x1b[0m -> \x1b[33m\x1b[1m${currentModel}\x1b[0m\n`);
+
+  console.log(
+    `\x1b[1m${'PROVIDER'.padEnd(20)} ${'STATUS'.padEnd(16)} ${'AVAILABLE MODELS / EXAMPLES'}\x1b[0m`
+  );
+  console.log('\x1b[2m────────────────────────────────────────────────────────────────────────────────\x1b[0m');
+
+  for (const p of providers) {
+    const isOnline = p.hasKey;
+    const statusText = isOnline
+      ? `\x1b[32m🟢 ONLINE\x1b[0m`
+      : `\x1b[31m🔴 NO KEY\x1b[0m \x1b[2m(${p.keyEnv})\x1b[0m`;
+
+    const isActive =
+      currentModel &&
+      p.models.toLowerCase().includes(currentModel.toLowerCase());
+    const marker = isActive ? '\x1b[33m👉 \x1b[0m' : '   ';
+
+    console.log(
+      `${marker}\x1b[1m${p.name.padEnd(17)}\x1b[0m ${statusText.padEnd(28)} \x1b[2m${p.models}\x1b[0m`
+    );
+  }
+
+  console.log('\x1b[2m────────────────────────────────────────────────────────────────────────────────\x1b[0m');
+  console.log(`\x1b[1mTo switch to any model:\x1b[0m \x1b[36m/model <model_name>\x1b[0m`);
+  console.log(`\x1b[2mExamples:\x1b[0m`);
+  console.log(`  • \x1b[33m/model gemini-3.5-flash-lite\x1b[0m  (Google Gemini)`);
+  console.log(`  • \x1b[33m/model claude-fable-5\x1b[0m         (Anthropic Claude Fable)`);
+  console.log(`  • \x1b[33m/model gpt-4o\x1b[0m                 (OpenAI)`);
+  console.log(`  • \x1b[33m/model deepseek-r1\x1b[0m            (DeepSeek)`);
+  console.log('\x1b[1m\x1b[36m================================================================================\x1b[0m\n');
 }
 
 function printReplHelp() {
@@ -241,7 +462,7 @@ function printReplHelp() {
   The AI will synthesize any missing code, test it in Docker, and give you the answer.
 
   \x1b[1mUniversal Model Support:\x1b[0m Works with ANY model (Claude Fable, Mythos, GPT-4o/5, Gemini, DeepSeek, Groq, Ollama).
-  
+
   \x1b[1mExamples you can copy and paste:\x1b[0m
   • \x1b[33mCalculate the standard deviation and variance of numbers: 12, 45, 67, 89, 120\x1b[0m
   • \x1b[33mFind all prime numbers between 1 and 1000 and calculate their average\x1b[0m
@@ -249,7 +470,8 @@ function printReplHelp() {
   • \x1b[33mCalculate 3-year compound growth: start 50000, end 120000, years 3\x1b[0m
 
 \x1b[1m🛠️ SLASH COMMANDS:\x1b[0m
-  • \x1b[32m/model <name>\x1b[0m                 Switch to ANY model live (e.g. /model claude-fable-5, /model gpt-4o)
+  • \x1b[32m/model\x1b[0m                        Show all models, providers, and their ONLINE/OFFLINE status
+  • \x1b[32m/model <name>\x1b[0m                 Switch to ANY model (e.g. /model claude-fable-5, /model gpt-4o)
   • \x1b[32m/tools\x1b[0m                        Show all currently registered tools on the shelf
   • \x1b[32m/synth <name> [purpose]\x1b[0m       Make the AI craft a new tool & test it in Docker
   • \x1b[32m/exec <toolName> [jsonArgs]\x1b[0m   Run any tool directly with your own input data
