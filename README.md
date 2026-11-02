@@ -94,6 +94,55 @@ const result = await sandbox.execute(toolCode, { numbers: [1, 2, 3, 4, 5] });
 // { success: true, result: 30, logs: [], executionTimeMs: ~1200 }
 ```
 
+## Connecting to your AI application
+
+There are two ways to use AetherFlow in your project:
+
+### 1. Fully Autonomous Agent (`AetherKernel`)
+Let the AI detect missing capabilities, write its own tools, test them in Docker, and answer complex goals automatically:
+
+```typescript
+import { AetherKernel } from '@aether-flow/core';
+
+// Initialize the kernel with live model provider & automatic tool synthesis
+const kernel = new AetherKernel({
+  provider: 'gemini', // or 'openai' or 'mock'
+  apiKey: process.env.GEMINI_API_KEY,
+  enableJitTools: true,
+});
+
+// Give it any complex algorithmic or data processing goal
+const res = await kernel.executeGoal(
+  'Analyze quarterly revenue metrics and calculate 3-year rolling CAGR'
+);
+
+console.log('Answer:', res.finalSynthesis);
+console.log('Tools created and saved:', res.synthesizedTools);
+```
+
+### 2. Drop-in Secure Sandbox for Existing Bots (LangChain / OpenAI / Claude)
+If you already have an existing agent or LLM workflow, use `Sandbox` as a safe code-execution tool:
+
+```typescript
+import { Sandbox, ASTVerifier } from '@aether-flow/core';
+
+const sandbox = new Sandbox({ mode: 'docker', timeoutMs: 5000 });
+const verifier = new ASTVerifier();
+
+// Register this as a tool in your OpenAI / LangChain agent:
+async function runUntrustedCode(aiGeneratedCode: string, inputArgs: Record<string, unknown>) {
+  // 1. Fast static AST safety check (~20ms)
+  const ast = verifier.verify(aiGeneratedCode);
+  if (!ast.isSafe) {
+    throw new Error(`Security violation: ${ast.bannedPatternsDetected.join(', ')}`);
+  }
+
+  // 2. Execute safely inside airtight ephemeral Docker container
+  const result = await sandbox.execute(aiGeneratedCode, inputArgs);
+  return result.result;
+}
+```
+
 ## Sandbox modes
 
 | Mode | What isolates the code | Use it for |
