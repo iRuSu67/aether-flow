@@ -121,7 +121,6 @@ ${c.cyan('  / _ \\____  / /_/ /_  ___  _____/ __/ (_)___ _    __     ')}
 ${c.cyan(' / ___/ __ \\/ __/ __ \\/ _ \\/ ___/ /_ / / __ \\ | /| / /     ')}
 ${c.cyan('/_/  /_/ /_/\\__/_/ /_/\\___/_/  /_/  /_/\\___/ |/ |/        ')}
 ${c.dim(`Autonomous Multi-Agent Microkernel & JIT Sandbox Engine v0.1.0`)}
-${c.dim(`[${hasKey ? c.green(formatSimpleModelName(activeModel)) : c.yellow('offline simulation')}]`)}
 `;
 
 async function main() {
@@ -184,7 +183,7 @@ ${c.bold('EXAMPLES WHAT TO TYPE:')}
 
 async function runGoal(goal: string) {
   console.log(c.bold(`Target Goal:`), c.cyan(goal));
-  console.log(c.dim('Initializing AetherFlow microkernel...\n'));
+  console.log(c.dim(`Initializing AetherFlow microkernel [${hasKey ? c.green(formatSimpleModelName(activeModel)) : c.yellow('offline simulation')}]...\n`));
 
   const kernel = new AetherKernel({
     provider: activeProvider,
