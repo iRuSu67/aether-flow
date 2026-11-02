@@ -123,7 +123,7 @@ ${c.bold('EXAMPLES WHAT TO TYPE:')}
 }
 
 async function runGoal(goal: string) {
-  console.log(c.bold(`🎯 Target Goal:`), c.cyan(goal));
+  console.log(c.bold(`Target Goal:`), c.cyan(goal));
   console.log(c.dim('Initializing AetherFlow microkernel...\n'));
 
   const kernel = new AetherKernel({
@@ -173,7 +173,7 @@ async function runGoal(goal: string) {
   console.log(c.dim('----------------------------------------------------'));
 
   console.log('\n' + c.bold(c.cyan('════════════════════════════════════════════════════════')));
-  console.log(c.bold(c.green('💡 FINAL RESULT / ANSWER:')));
+  console.log(c.bold(c.green('FINAL RESULT / ANSWER:')));
   console.log(c.bold(c.cyan('════════════════════════════════════════════════════════')));
   let answerStr = res.finalSynthesis;
   try {
@@ -187,7 +187,7 @@ async function runGoal(goal: string) {
 }
 
 async function runSynth(toolName: string, purpose: string) {
-  console.log(c.bold(`🛠️ Synthesizing JIT Tool:`), c.cyan(toolName));
+  console.log(c.bold(`Synthesizing JIT Tool:`), c.cyan(toolName));
   console.log(c.dim(`Purpose: ${purpose}\n`));
 
   const kernel = new AetherKernel({

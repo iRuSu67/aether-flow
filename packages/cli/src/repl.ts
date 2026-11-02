@@ -104,7 +104,7 @@ export async function startRepl() {
 
   console.log('\x1b[36m\x1b[1m');
   console.log('╔══════════════════════════════════════════════════════════════════════════╗');
-  console.log('║               🌌 AETHERFLOW INTERACTIVE TERMINAL (REPL)                  ║');
+  console.log('║               AETHERFLOW INTERACTIVE TERMINAL (REPL)                  ║');
   console.log('║      Type any math, data, or coding problem — or /help for guidance      ║');
   console.log('╚══════════════════════════════════════════════════════════════════════════╝');
   console.log('\x1b[0m' + modeBadge + '\n');
@@ -121,7 +121,7 @@ export async function startRepl() {
         `\x1b[32m✔ [Tool Executed: ${event.payload?.toolName || 'tool'}]\x1b[0m \x1b[2m${summary.slice(0, 100)}\x1b[0m`
       );
     } else if (event.type === 'tool:synthesized') {
-      console.log(`\x1b[35m🛠️ [Tool Synthesized in Sandbox]\x1b[0m \x1b[1m${event.payload?.toolName}\x1b[0m`);
+      console.log(`\x1b[35m[Tool Synthesized in Sandbox]\x1b[0m \x1b[1m${event.payload?.toolName}\x1b[0m`);
     }
   });
 
@@ -296,14 +296,14 @@ export async function startRepl() {
       rl.setPrompt(getPromptString());
 
       if (!isKeyAvailable) {
-        console.log(`\n\x1b[33m⚠️  Warning: ${requiredKey} is not set in your .env file.\x1b[0m`);
+        console.log(`\n\x1b[33mWarning: ${requiredKey} is not set in your .env file.\x1b[0m`);
         console.log(
           `\x1b[2mSwitched model to "${targetModel}" (${kernel.provider.name}), but live calls require ${requiredKey}.\x1b[0m`
         );
         console.log(`\x1b[2mType /model to see which providers are currently online!\x1b[0m\n`);
       } else {
         console.log(
-          `\n\x1b[32m✔ Active Model:\x1b[0m \x1b[1m${targetModel}\x1b[0m \x1b[2m(Provider: ${kernel.provider.name} 🟢 ONLINE)\x1b[0m\n`
+          `\n\x1b[32m✔ Active Model:\x1b[0m \x1b[1m${targetModel}\x1b[0m \x1b[2m(Provider: ${kernel.provider.name} [ONLINE])\x1b[0m\n`
         );
       }
 
@@ -444,7 +444,7 @@ export async function startRepl() {
 
     // Print final answer prominently!
     console.log('\n\x1b[1m\x1b[32m══════════════════════════════════════════════════════════════\x1b[0m');
-    console.log('\x1b[1m\x1b[32m💡 FINAL RESULT / ANSWER:\x1b[0m');
+    console.log('\x1b[1m\x1b[32mFINAL RESULT / ANSWER:\x1b[0m');
     console.log('\x1b[1m\x1b[32m══════════════════════════════════════════════════════════════\x1b[0m');
     let answerStr = res.finalSynthesis;
     try {
@@ -521,13 +521,13 @@ function printModelStatus(kernel: AetherKernel) {
   for (const p of providers) {
     const isOnline = p.hasKey;
     const statusText = isOnline
-      ? `\x1b[32m🟢 ONLINE\x1b[0m`
-      : `\x1b[31m🔴 NO KEY\x1b[0m \x1b[2m(${p.keyEnv})\x1b[0m`;
+      ? `\x1b[32m[ONLINE]\x1b[0m`
+      : `\x1b[31m[NO KEY]\x1b[0m \x1b[2m(${p.keyEnv})\x1b[0m`;
 
     const isActive =
       currentModel &&
       p.models.toLowerCase().includes(currentModel.toLowerCase());
-    const marker = isActive ? '\x1b[33m👉 \x1b[0m' : '   ';
+    const marker = isActive ? '\x1b[33m> \x1b[0m' : '   ';
 
     console.log(
       `${marker}\x1b[1m${p.name.padEnd(17)}\x1b[0m ${statusText.padEnd(28)} \x1b[2m${p.models}\x1b[0m`
@@ -549,22 +549,22 @@ function printExamples() {
 \x1b[1m\x1b[36m========================= PRESET EXAMPLES TO TRY =========================\x1b[0m
 \x1b[2mCopy and paste any of these directly into the aether> prompt:\x1b[0m
 
-\x1b[1m1. 📊 Statistics & Data Variance:\x1b[0m
+\x1b[1m1. Statistics & Data Variance:\x1b[0m
    \x1b[33mCalculate the standard deviation and variance of numbers: 12, 45, 67, 89, 120\x1b[0m
 
-\x1b[1m2. 💰 Financial Portfolio CAGR:\x1b[0m
+\x1b[1m2. Financial Portfolio CAGR:\x1b[0m
    \x1b[33mCalculate 3-year compound growth: start 50000, end 120000, years 3\x1b[0m
 
-\x1b[1m3. 🔢 High-Speed Prime Factorization:\x1b[0m
+\x1b[1m3. High-Speed Prime Factorization:\x1b[0m
    \x1b[33mFind all prime numbers between 1 and 1000 and calculate their average\x1b[0m
 
-\x1b[1m4. 📧 Regex Pattern Extraction:\x1b[0m
+\x1b[1m4. Regex Pattern Extraction:\x1b[0m
    \x1b[33mParse this text and extract all email addresses: contact support@corp.com or sales@store.org\x1b[0m
 
-\x1b[1m5. 🛡️ Security Injection Firewall Audit:\x1b[0m
+\x1b[1m5. Security Injection Firewall Audit:\x1b[0m
    \x1b[33m/audit export API_KEY="AIzaSySecretFakeApiKey12345678901234"\x1b[0m
 
-\x1b[1m6. 🛠️ Inspect Synthesized Code:\x1b[0m
+\x1b[1m6. Inspect Synthesized Code:\x1b[0m
    \x1b[33m/code calculate_rolling_cagr\x1b[0m
 
 \x1b[1m===========================================================================\x1b[0m
@@ -575,15 +575,15 @@ function printReplHelp() {
   console.log(`
 \x1b[1m\x1b[36m====================== AETHERFLOW USER GUIDE ======================\x1b[0m
 
-\x1b[1m💡 HOW TO ASK QUESTIONS (Natural Language):\x1b[0m
+\x1b[1mHOW TO ASK QUESTIONS (Natural Language):\x1b[0m
   You do NOT need code. Just type your problem or calculation and hit Enter!
   The AI will synthesize any missing code, test it in Docker, and give you the answer.
 
   \x1b[1mUniversal Model Support:\x1b[0m Works with ANY model (Claude Fable, Mythos, GPT-4o/5, Gemini, DeepSeek, Groq, Ollama).
   \x1b[1mQuick Examples Menu:\x1b[0m Type \x1b[33m/examples\x1b[0m to see 5 ready-to-run scenarios.
 
-\x1b[1m🛠️ SLASH COMMANDS (Press Tab to auto-complete):\x1b[0m
-  • \x1b[32m/model\x1b[0m                        Show all models, providers, and their ONLINE/OFFLINE status
+\x1b[1mSLASH COMMANDS (Press Tab to auto-complete):\x1b[0m
+  • \x1b[32m/model\x1b[0m                        Show all models, providers, and their [ONLINE]/OFFLINE status
   • \x1b[32m/model <name>\x1b[0m                 Switch to ANY model (e.g. /model claude-fable-5, /model gpt-4o)
   • \x1b[32m/tools\x1b[0m                        Show all currently registered tools on the shelf
   • \x1b[32m/code <toolName>\x1b[0m              Inspect the real JavaScript code the AI wrote
