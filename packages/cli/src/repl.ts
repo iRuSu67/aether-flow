@@ -16,19 +16,44 @@ if (typeof process.loadEnvFile === 'function') {
 }
 
 function formatSimpleModelName(model: string): string {
-  const m = (model || '').toLowerCase();
-  if (m.includes('3.5') || m.includes('flash')) return 'gemini 3.5 flash';
-  if (m.includes('fable')) return 'claude fable';
-  if (m.includes('sonnet')) return 'claude sonnet';
-  if (m.includes('haiku')) return 'claude haiku';
-  if (m.includes('gpt-4o-mini')) return 'gpt-4o mini';
-  if (m.includes('gpt-4o')) return 'gpt-4o';
-  if (m.includes('o1')) return 'o1';
-  if (m.includes('o3')) return 'o3';
-  if (m.includes('deepseek')) return 'deepseek';
-  if (m.includes('llama')) return 'llama 3.3';
-  if (m.includes('simulation')) return 'offline simulation';
-  return model;
+  const m = (model || '').trim().toLowerCase();
+  if (m.includes('gemini')) {
+    if (m.includes('2.0')) return 'gemini 2.0 flash';
+    if (m.includes('1.5-pro')) return 'gemini 1.5 pro';
+    if (m.includes('1.5')) return 'gemini 1.5 flash';
+    if (m.includes('3.5') || m.includes('flash')) return 'gemini 3.5 flash';
+    return 'gemini';
+  }
+  if (m.includes('claude') || m.includes('fable') || m.includes('mythos') || m.includes('anthropic')) {
+    if (m.includes('fable')) return 'claude fable';
+    if (m.includes('mythos')) return 'claude mythos';
+    if (m.includes('sonnet')) return 'claude sonnet';
+    if (m.includes('haiku')) return 'claude haiku';
+    if (m.includes('opus')) return 'claude opus';
+    return 'claude';
+  }
+  if (m.includes('gpt') || m.includes('openai') || m.startsWith('o1') || m.startsWith('o3')) {
+    if (m.includes('4o-mini')) return 'gpt-4o mini';
+    if (m.includes('4o')) return 'gpt-4o';
+    if (m.includes('o1-mini')) return 'o1 mini';
+    if (m.includes('o1')) return 'o1';
+    if (m.includes('o3-mini')) return 'o3 mini';
+    if (m.includes('o3')) return 'o3';
+    return m.replace(/-/g, ' ');
+  }
+  if (m.includes('deepseek')) {
+    if (m.includes('r1')) return 'deepseek r1';
+    if (m.includes('coder')) return 'deepseek coder';
+    return 'deepseek';
+  }
+  if (m.includes('llama')) {
+    if (m.includes('3.3')) return 'llama 3.3';
+    if (m.includes('3.2')) return 'llama 3.2';
+    if (m.includes('3.1')) return 'llama 3.1';
+    return 'llama';
+  }
+  if (m.includes('simulation') || m.includes('mock')) return 'offline simulation';
+  return model.replace(/[-_]/g, ' ');
 }
 
 function detectActiveProvider(): { provider: any; model: string; displayName: string; isLive: boolean } {
