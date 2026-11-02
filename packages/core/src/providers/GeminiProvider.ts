@@ -5,9 +5,9 @@ export class GeminiProvider implements ModelProvider {
   private apiKey: string;
   private model: string;
 
-  constructor(apiKey?: string, model = 'gemini-1.5-pro') {
+  constructor(apiKey?: string, model?: string) {
     this.apiKey = apiKey || process.env.GEMINI_API_KEY || '';
-    this.model = model;
+    this.model = model || process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
   }
 
   async generateText(request: CompletionRequest): Promise<string> {

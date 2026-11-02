@@ -2,6 +2,13 @@
 import { AetherKernel, CognitiveEvent } from '@aether-flow/core';
 import { startRepl } from './repl.js';
 
+// Automatically load local .env if present
+if (typeof process.loadEnvFile === 'function') {
+  try {
+    process.loadEnvFile();
+  } catch {}
+}
+
 // ANSI color helpers
 const c = {
   cyan: (s: string) => `\x1b[36m${s}\x1b[0m`,
@@ -14,12 +21,17 @@ const c = {
   blue: (s: string) => `\x1b[34m${s}\x1b[0m`,
 };
 
+const hasKey = Boolean(process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY);
+const activeProvider = (process.env.PROVIDER as any) || (process.env.GEMINI_API_KEY ? 'gemini' : process.env.OPENAI_API_KEY ? 'openai' : 'mock');
+const activeModel = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
+
 const BANNER = `
 ${c.cyan('   ___        __  __              _____ _                 ')}
 ${c.cyan('  / _ \\____  / /_/ /_  ___  _____/ __/ (_)___ _    __     ')}
 ${c.cyan(' / ___/ __ \\/ __/ __ \\/ _ \\/ ___/ /_ / / __ \\ | /| / /     ')}
 ${c.cyan('/_/  /_/ /_/\\__/_/ /_/\\___/_/  /_/  /_/\\___/ |/ |/        ')}
-${c.dim('Autonomous Multi-Agent Microkernel & Cognitive Engine v1.0.0')}
+${c.dim(`Autonomous Multi-Agent Microkernel & JIT Sandbox Engine v0.1.0`)}
+${c.dim(`[Mode: ${hasKey ? c.green(`Live ${activeProvider.toUpperCase()} (${activeModel})`) : c.yellow('Offline Simulation Engine')}]`)}
 `;
 
 async function main() {
@@ -34,7 +46,7 @@ async function main() {
   }
 
   if (command === 'run') {
-    const goal = args.slice(1).join(' ') || 'Autonomous architectural code review and security audit';
+    const goal = args.slice(1).join(' ') || 'Calculate statistical distributions';
     await runGoal(goal);
   } else if (command === 'repl' || command === 'interactive') {
     await startRepl();
@@ -57,18 +69,26 @@ function printHelp() {
   console.log(`
 ${c.bold('USAGE:')}
   ${c.cyan('aether')} ${c.yellow('<command>')} [options]
+  ${c.cyan('npm run cli --')} ${c.yellow('<command>')} [options]
 
 ${c.bold('COMMANDS:')}
-  ${c.yellow('run <goal>')}              Execute an autonomous multi-agent goal with Hegelian debate
-  ${c.yellow('synth <name> <purpose>')}  Directly synthesize and sandbox-verify a dynamic JIT tool
-  ${c.yellow('serve [port]')}            Start the real-time WebSocket telemetry engine (default: 4884)
-  ${c.yellow('demo')}                    Run end-to-end multi-agent demonstration with mock provider
-  ${c.yellow('help')}                    Display this command reference
+  ${c.yellow('repl')}                    Launch the interactive terminal (type any question or goal)
+  ${c.yellow('run "<goal>"')}             Execute an autonomous goal, build needed tools, and print the answer
+  ${c.yellow('synth <name> [purpose]')}   Synthesize and sandbox-verify a dynamic JIT tool
+  ${c.yellow('serve [port]')}             Start the real-time WebSocket telemetry server (default: 4884)
+  ${c.yellow('help')}                     Display this command guide
 
-${c.bold('EXAMPLES:')}
-  ${c.dim('$')} aether run "Analyze NASDAQ top 10 tickers and estimate covariance"
-  ${c.dim('$')} aether synth monte_carlo "Run 1000 portfolio simulations"
-  ${c.dim('$')} aether serve 4884
+${c.bold('EXAMPLES WHAT TO TYPE:')}
+  ${c.dim('# Interactive session (recommended):')}
+  ${c.green('npm run cli -- repl')}
+
+  ${c.dim('# Single math / algorithm goals:')}
+  ${c.green('npm run cli -- run "Calculate the standard deviation and variance of numbers: 12, 45, 67, 89, 120"')}
+  ${c.green('npm run cli -- run "Find all prime numbers between 1 and 1000 and calculate their average"')}
+  ${c.green('npm run cli -- run "Parse text and extract all email addresses: contact support@corp.com"')}
+
+  ${c.dim('# Synthesize a specific tool directly:')}
+  ${c.green('npm run cli -- synth prime_checker "Checks if a number is prime and lists nearest primes"')}
 `);
 }
 
@@ -77,8 +97,9 @@ async function runGoal(goal: string) {
   console.log(c.dim('Initializing AetherFlow microkernel...\n'));
 
   const kernel = new AetherKernel({
-    provider: (process.env.PROVIDER as any) || (process.env.GEMINI_API_KEY ? 'gemini' : 'mock'),
+    provider: activeProvider,
     apiKey: process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY,
+    modelName: activeModel,
     enableJitTools: true,
   });
 
@@ -101,6 +122,17 @@ async function runGoal(goal: string) {
 
   const res = await kernel.executeGoal(goal);
 
+  console.log('\n' + c.bold(c.cyan('──────────────── Execution Steps ────────────────')));
+  for (const step of res.plan.steps) {
+    const icon = step.status === 'completed' ? c.green('✔') : c.red('✖');
+    console.log(`${icon} ${c.bold(`[${step.agentRole}]`)} ${step.title}`);
+    if (step.output) {
+      const outStr = typeof step.output === 'object' ? JSON.stringify(step.output, null, 2) : String(step.output);
+      const indented = outStr.split('\n').map((l) => '    ' + l).join('\n');
+      console.log(c.dim(indented));
+    }
+  }
+
   console.log('\n' + c.green('✔ Goal Execution Complete'));
   console.log(c.dim('----------------------------------------------------'));
   console.log(`${c.bold('Status:')}             ${c.green('SUCCESS')}`);
@@ -110,6 +142,17 @@ async function runGoal(goal: string) {
   console.log(`${c.bold('Cognitive Events:')}  ${c.cyan(String(res.traceEventsCount))}`);
   console.log(c.dim('----------------------------------------------------'));
 
+  console.log('\n' + c.bold(c.cyan('════════════════════════════════════════════════════════')));
+  console.log(c.bold(c.green('💡 FINAL RESULT / ANSWER:')));
+  console.log(c.bold(c.cyan('════════════════════════════════════════════════════════')));
+  let answerStr = res.finalSynthesis;
+  try {
+    const parsed = JSON.parse(res.finalSynthesis);
+    answerStr = JSON.stringify(parsed, null, 2);
+  } catch {}
+  console.log(c.bold(answerStr));
+  console.log(c.bold(c.cyan('════════════════════════════════════════════════════════\n')));
+
   await kernel.stop();
 }
 
@@ -117,12 +160,16 @@ async function runSynth(toolName: string, purpose: string) {
   console.log(c.bold(`🛠️ Synthesizing JIT Tool:`), c.cyan(toolName));
   console.log(c.dim(`Purpose: ${purpose}\n`));
 
-  const kernel = new AetherKernel({ provider: 'mock' });
+  const kernel = new AetherKernel({
+    provider: activeProvider,
+    apiKey: process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY,
+    modelName: activeModel,
+  });
 
   const result = await kernel.synthesizeTool({
     toolName,
     purpose,
-    inputSpecification: [{ name: 'data', type: 'array', description: 'Input data set' }],
+    inputSpecification: [{ name: 'input', type: 'object', description: 'Input data' }],
     expectedOutput: 'Calculated analytic output',
   });
 
